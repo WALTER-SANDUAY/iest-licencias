@@ -119,7 +119,7 @@ export default function PedirLicencia() {
     <div>
       <div className="page-header">
         <h1>Pedir Licencia</h1>
-        <p>Etapa 1 — Completá el aviso</p>
+        <p>Completá el aviso</p>
       </div>
 
       <div className="card card-body">

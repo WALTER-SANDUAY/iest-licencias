@@ -19,7 +19,7 @@ export async function generarAvisoPDF({ docente, licencia, solicitud }) {
     x: 40, y: height - 35,
     size: 18, font: fontBold, color: rgb(1,1,1)
   })
-  page.drawText('Instituto de Estudios Superiores Tecnológicos', {
+  page.drawText('Instituto de Estudios Superiores Tinogasta', {
     x: 40, y: height - 55,
     size: 10, font: fontRegular, color: rgb(1,1,1,0.85)
   })
