@@ -11,11 +11,10 @@ export default function Docentes() {
   const [error, setError] = useState('')
 
   const [form, setForm] = useState({
-    nombre: '', apellido: '', dni: '', email: '',
+    nombre: '', apellido: '', dni: '',
     telefono: '', domicilio: ''
   })
 
-  // Asignaciones: array de { carrera_id, curso_id, materia }
   const [asignaciones, setAsignaciones] = useState([{ carrera_id: '', curso_id: '', materia: '' }])
 
   useEffect(() => { cargarDatos() }, [])
@@ -62,25 +61,28 @@ export default function Docentes() {
     setError('')
 
     const email = `${form.dni}@iest.edu.ar`
+    const newId = crypto.randomUUID()
 
-    // 1. Crear en Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password: form.dni,
-      options: { data: { nombre: form.nombre, apellido: form.apellido } }
+    // 1. Crear en auth.users via función SQL
+    const { error: authError } = await supabase.rpc('crear_usuario_auth', {
+      p_email: email,
+      p_password: form.dni,
+      p_user_id: newId
     })
 
     if (authError) { setError(authError.message); setGuardando(false); return }
 
-    const userId = authData.user?.id
-    if (!userId) { setError('Error al crear usuario'); setGuardando(false); return }
-
-    // 2. Insertar en users
-    await supabase.from('users').insert({
-      id: userId, dni: form.dni,
-      nombre: form.nombre, apellido: form.apellido,
-      email, rol: 'docente'
+    // 2. Insertar en public.users
+    const { error: userError } = await supabase.from('users').insert({
+      id: newId,
+      dni: form.dni,
+      nombre: form.nombre,
+      apellido: form.apellido,
+      email,
+      rol: 'docente'
     })
+
+    if (userError) { setError(userError.message); setGuardando(false); return }
 
     // 3. Insertar en teachers
     const primeraAsig = asignaciones[0]
@@ -88,12 +90,12 @@ export default function Docentes() {
     const cursoNombre   = cursosDeCarrera(primeraAsig.carrera_id).find(c => c.id === parseInt(primeraAsig.curso_id))?.nombre || ''
 
     const { data: teacher } = await supabase.from('teachers').insert({
-      user_id: userId,
+      user_id: newId,
       carrera: carreraNombre,
       curso_division: cursoNombre
     }).select().single()
 
-    // 4. Insertar asignaciones múltiples
+    // 4. Insertar asignaciones
     if (teacher) {
       const rows = asignaciones
         .filter(a => a.carrera_id && a.curso_id)
@@ -108,7 +110,7 @@ export default function Docentes() {
 
     setGuardando(false)
     setModalOpen(false)
-    setForm({ nombre: '', apellido: '', dni: '', email: '', telefono: '', domicilio: '' })
+    setForm({ nombre: '', apellido: '', dni: '', telefono: '', domicilio: '' })
     setAsignaciones([{ carrera_id: '', curso_id: '', materia: '' }])
     cargarDatos()
   }
@@ -155,8 +157,6 @@ export default function Docentes() {
               <button className="modal-close" onClick={() => setModalOpen(false)}>✕</button>
             </div>
             <form onSubmit={guardarDocente}>
-
-              {/* Datos personales */}
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', marginBottom: 10 }}>Datos personales</p>
               <div className="form-row">
                 <div className="form-group">
@@ -183,7 +183,6 @@ export default function Docentes() {
 
               <div className="divider" />
 
-              {/* Asignaciones */}
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', marginBottom: 10 }}>
                 Carreras / Cursos / Materias
               </p>
@@ -215,19 +214,19 @@ export default function Docentes() {
                     </div>
                   )}
                   {a.curso_id && (
-    <div className="form-group">
-      <label>Materia (opcional)</label>
-      <select value={a.materia} onChange={e => updateAsignacion(i, 'materia', e.target.value)}>
-        <option value="">— Todas las materias del curso —</option>
-        {cursosDeCarrera(a.carrera_id)
-          .find(c => c.id === parseInt(a.curso_id))
-          ?.materias?.map(m => (
-            <option key={m.id} value={m.nombre}>{m.nombre}</option>
-          ))
-        }
-      </select>       
-    </div>
-  )}
+                    <div className="form-group">
+                      <label>Materia (opcional)</label>
+                      <select value={a.materia} onChange={e => updateAsignacion(i, 'materia', e.target.value)}>
+                        <option value="">— Todas las materias —</option>
+                        {cursosDeCarrera(a.carrera_id)
+                          .find(c => c.id === parseInt(a.curso_id))
+                          ?.materias?.map(m => (
+                            <option key={m.id} value={m.nombre}>{m.nombre}</option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                  )}
                 </div>
               ))}
 
