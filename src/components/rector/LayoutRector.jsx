@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import logo from '/icons/logo.jpg'
+import { LayoutDashboard, ClipboardList, Users, FileText, GraduationCap, LogOut } from 'lucide-react'
 
 export default function LayoutRector() {
   const { perfil, logout } = useAuth()
@@ -34,12 +35,14 @@ export default function LayoutRector() {
         <NavLink to="/rector/solicitudes" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
           <span className="bnav-icon">📋</span>Solicitudes
         </NavLink>
-        <NavLink to="/rector/docentes" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
-          <span className="bnav-icon">👨‍🏫</span>Docentes
-        </NavLink>
-        <NavLink to="/rector/licencias" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
-          <span className="bnav-icon">📁</span>Licencias
-        </NavLink>
+       <NavLink to="/rector/licencias" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
+  <FileText size={22} />
+  <span>Licencias</span>
+</NavLink>
+<NavLink to="/rector/carreras" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
+  <GraduationCap size={22} />
+  <span>Carreras</span>
+</NavLink>
       </nav>
     </>
   )

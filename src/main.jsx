@@ -11,6 +11,7 @@ import Dashboard     from './pages/rector/Dashboard'
 import Solicitudes   from './pages/rector/Solicitudes'
 import Docentes      from './pages/rector/Docentes'
 import TiposLicencia from './pages/rector/TiposLicencia'
+import Carreras from './pages/rector/Carreras'
 
 import LayoutDocente  from './components/docente/LayoutDocente'
 import Inicio         from './pages/docente/Inicio'
@@ -34,6 +35,7 @@ createRoot(document.getElementById('root')).render(
             <Route path="solicitudes" element={<Solicitudes />} />
             <Route path="docentes"    element={<Docentes />} />
             <Route path="licencias"   element={<TiposLicencia />} />
+            <Route path="carreras" element={<Carreras />} />
           </Route>
 
           {/* Docente */}
