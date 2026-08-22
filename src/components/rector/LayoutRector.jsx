@@ -1,10 +1,10 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import logo from '/icons/logo.jpg'
 import { LayoutDashboard, ClipboardList, Users, FileText, GraduationCap, LogOut } from 'lucide-react'
+import logo from '/icons/logo.jpg'
 
 export default function LayoutRector() {
-  const { perfil, logout } = useAuth()
+  const { logout } = useAuth()
   const navigate = useNavigate()
 
   async function handleLogout() {
@@ -19,8 +19,8 @@ export default function LayoutRector() {
           <img src={logo} alt="IEST" />
           IEST <span>Licencias</span>
         </div>
-        <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-          Salir
+        <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer' }}>
+          <LogOut size={18} />
         </button>
       </div>
 
@@ -30,19 +30,25 @@ export default function LayoutRector() {
 
       <nav className="bottom-nav">
         <NavLink to="/rector" end className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
-          <span className="bnav-icon">📊</span>Panel
+          <LayoutDashboard size={22} />
+          <span>Panel</span>
         </NavLink>
         <NavLink to="/rector/solicitudes" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
-          <span className="bnav-icon">📋</span>Solicitudes
+          <ClipboardList size={22} />
+          <span>Solicitudes</span>
         </NavLink>
-       <NavLink to="/rector/licencias" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
-  <FileText size={22} />
-  <span>Licencias</span>
-</NavLink>
-<NavLink to="/rector/carreras" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
-  <GraduationCap size={22} />
-  <span>Carreras</span>
-</NavLink>
+        <NavLink to="/rector/docentes" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
+          <Users size={22} />
+          <span>Docentes</span>
+        </NavLink>
+        <NavLink to="/rector/licencias" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
+          <FileText size={22} />
+          <span>Licencias</span>
+        </NavLink>
+        <NavLink to="/rector/carreras" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`}>
+          <GraduationCap size={22} />
+          <span>Carreras</span>
+        </NavLink>
       </nav>
     </>
   )
