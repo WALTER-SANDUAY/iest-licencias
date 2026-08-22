@@ -29,7 +29,7 @@ export default function Login() {
     setLoading(false)
 
     if (result.error) {
-      setError(result.error.message)
+  setError(result.error.message || JSON.stringify(result.error))
     } else {
       navigate(rol === 'rector' ? '/rector' : '/docente')
     }
