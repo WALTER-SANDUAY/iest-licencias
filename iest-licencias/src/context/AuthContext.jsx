@@ -5,27 +5,22 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
-  const [perfil, setPerfil]   = useState(null)
+  const [perfil, setPerfil]   = useState(null)  // { rol, nombre, apellido, ... }
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // Sesión activa al cargar
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
-        await cargarPerfil(session.user.id)
-      } else {
-        setLoading(false)
-      }
+      if (session?.user) cargarPerfil(session.user.id)
+      else setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Escuchar cambios de sesión
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
-        await cargarPerfil(session.user.id)
-      } else {
-        setPerfil(null)
-        setLoading(false)
-      }
+      if (session?.user) cargarPerfil(session.user.id)
+      else { setPerfil(null); setLoading(false) }
     })
 
     return () => subscription.unsubscribe()
@@ -41,11 +36,13 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }
 
+  // Login rector (email + password)
   async function loginRector(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     return { data, error }
   }
 
+  // Login docente (solo DNI — busca en tabla users)
   async function loginDocente(dni) {
     const { data: docente, error } = await supabase
       .from('users')
@@ -56,6 +53,7 @@ export function AuthProvider({ children }) {
 
     if (error || !docente) return { error: { message: 'DNI no encontrado en el sistema' } }
 
+    // Los docentes tienen password = su DNI (configurado al crearlos)
     const { data, error: loginError } = await supabase.auth.signInWithPassword({
       email: docente.email,
       password: dni
@@ -76,7 +74,7 @@ export function AuthProvider({ children }) {
       esRector, esDocente,
       loginRector, loginDocente, logout
     }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }

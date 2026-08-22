@@ -9,104 +9,157 @@ export default function PedirLicencia() {
   const navigate = useNavigate()
   const [teacher, setTeacher] = useState(null)
   const [tipos, setTipos] = useState([])
-  const [form, setForm] = useState({ license_type_id: '', fecha_desde: '', fecha_hasta: '', motivo: '' })
+  const [form, setForm] = useState({
+    license_type_id: '',
+    fecha_desde: '',
+    fecha_hasta: '',
+    motivo: ''
+  })
   const [diasSolicitados, setDiasSolicitados] = useState(0)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { cargarDatos() }, [])
+  useEffect(() => {
+    cargarDatos()
+  }, [])
 
+  // Cálculo de días
   useEffect(() => {
     if (form.fecha_desde && form.fecha_hasta) {
       const desde = new Date(form.fecha_desde)
       const hasta = new Date(form.fecha_hasta)
+
+      if (desde > hasta) {
+        setDiasSolicitados(0)
+        return
+      }
+
       const diff = Math.ceil((hasta - desde) / (1000 * 60 * 60 * 24)) + 1
       setDiasSolicitados(diff > 0 ? diff : 0)
+    } else {
+      setDiasSolicitados(0)
     }
   }, [form.fecha_desde, form.fecha_hasta])
 
   async function cargarDatos() {
-    const { data: t } = await supabase
-      .from('teachers')
-      .select('id, carrera, curso_division, users(nombre, apellido, dni)')
-      .eq('user_id', user.id)
-      .single()
-    setTeacher(t)
+    try {
+      const { data: t, error: teacherError } = await supabase
+        .from('teachers')
+        .select('id, carrera, curso_division, users(nombre, apellido, dni)')
+        .eq('user_id', user.id)
+        .single()
 
-    const { data: tiposData } = await supabase
-      .from('license_types')
-      .select('id, nombre, articulo, categoria_id, license_categories(nombre)')
-      .eq('activo', true)
-      .order('categoria_id')
-    setTipos(tiposData || [])
-    setLoading(false)
+      if (teacherError) throw teacherError
+      setTeacher(t)
+
+      // ✅ QUITAMOS "dias_maximos" de la consulta porque NO EXISTE en la BD
+      const { data: tiposData, error: tiposError } = await supabase
+        .from('license_types')
+        .select('id, nombre, articulo, categoria_id, license_categories(nombre)')
+        .eq('activo', true)
+        .order('categoria_id')
+
+      if (tiposError) throw tiposError
+      setTipos(tiposData || [])
+
+      // Verificar que se cargó la licencia de Paternidad
+      const paternidadCargada = tiposData?.find(t => t.nombre?.toLowerCase().includes('paternidad'))
+      if (paternidadCargada) {
+        console.log('✅ Licencia de Paternidad cargada:', paternidadCargada)
+      } else {
+        console.warn('⚠️ No se encontró Licencia de Paternidad')
+      }
+
+    } catch (err) {
+      setError('No se pudieron cargar los datos: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function enviar(e) {
     e.preventDefault()
-    if (diasSolicitados <= 0) { setError('Las fechas no son válidas'); return }
     setError('')
+
+    // Validaciones generales
+    if (!form.license_type_id) return setError('Seleccioná un tipo de licencia')
+    if (!form.fecha_desde || !form.fecha_hasta) return setError('Completá ambas fechas')
+    if (new Date(form.fecha_desde) > new Date(form.fecha_hasta)) {
+      return setError('La fecha de inicio no puede ser posterior a la de fin')
+    }
+    if (diasSolicitados <= 0) return setError('El período solicitado no es válido')
+    if (!form.motivo.trim()) return setError('Escribí el motivo de la licencia')
+
     setEnviando(true)
 
-    // 1. Insertar solicitud
-    const tipoSeleccionado = tipos.find(t => t.id === parseInt(form.license_type_id))
+    try {
+      const tipoSeleccionado = tipos.find(t => t.id === Number(form.license_type_id))
+      if (!tipoSeleccionado) throw new Error('Tipo de licencia no válido')
 
-    const { data: solicitud, error: insertError } = await supabase
-      .from('license_requests')
-      .insert({
-        teacher_id: teacher.id,
-        license_type_id: parseInt(form.license_type_id),
-        fecha_desde: form.fecha_desde,
-        fecha_hasta: form.fecha_hasta,
-        dias_solicitados: diasSolicitados,
-        motivo: form.motivo,
-        estado: 'pendiente'
+      // 1. Insertar solicitud
+      const { data: solicitud, error: insertError } = await supabase
+        .from('license_requests')
+        .insert({
+          teacher_id: teacher.id,
+          license_type_id: Number(form.license_type_id),
+          fecha_desde: form.fecha_desde,
+          fecha_hasta: form.fecha_hasta,
+          dias_solicitados: diasSolicitados,
+          motivo: form.motivo.trim(),
+          estado: 'pendiente'
+        })
+        .select()
+        .single()
+
+      if (insertError) throw insertError
+
+      // 2. Generar PDF con los datos de Paternidad
+      const pdfBytes = await generarAvisoPDF({
+        docente: {
+          nombre: teacher.users.nombre,
+          apellido: teacher.users.apellido,
+          dni: teacher.users.dni,
+          carrera: teacher.carrera,
+          curso_division: teacher.curso_division
+        },
+        licencia: {
+          nombre: tipoSeleccionado.nombre,
+          articulo: tipoSeleccionado.articulo,
+          categoria: tipoSeleccionado.license_categories?.nombre || 'Sin categoría'
+        },
+        solicitud: {
+          ...solicitud,
+          created_at: new Date().toISOString()
+        }
       })
-      .select()
-      .single()
 
-    if (insertError) { setError(insertError.message); setEnviando(false); return }
+      // 3. Subir PDF
+      const path = `avisos/${solicitud.id}.pdf`
+      const { error: uploadError } = await supabase.storage
+        .from('licencias-pdf')
+        .upload(path, pdfBytes, { contentType: 'application/pdf', upsert: true })
 
-    // 2. Generar PDF del aviso
-    const pdfBytes = await generarAvisoPDF({
-      docente: {
-        nombre: teacher.users.nombre,
-        apellido: teacher.users.apellido,
-        dni: teacher.users.dni,
-        carrera: teacher.carrera,
-        curso_division: teacher.curso_division
-      },
-      licencia: {
-        nombre: tipoSeleccionado.nombre,
-        articulo: tipoSeleccionado.articulo,
-        categoria: tipoSeleccionado.license_categories?.nombre || ''
-      },
-      solicitud: {
-        ...solicitud,
-        created_at: new Date().toISOString()
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('licencias-pdf').getPublicUrl(path)
+        await supabase
+          .from('license_requests')
+          .update({ aviso_pdf_url: urlData.publicUrl })
+          .eq('id', solicitud.id)
       }
-    })
 
-    // 3. Subir PDF a Supabase Storage
-    const path = `avisos/${solicitud.id}.pdf`
-    const { error: uploadError } = await supabase.storage
-      .from('licencias-pdf')
-      .upload(path, pdfBytes, { contentType: 'application/pdf', upsert: true })
+      // 4. Descargar y redirigir
+      descargarPDF(pdfBytes, `aviso-licencia-${solicitud.id.slice(0, 8)}.pdf`)
+      navigate('/docente/historial', { state: { mensaje: '✅ Licencia enviada correctamente' } })
 
-    if (!uploadError) {
-      const { data: urlData } = supabase.storage.from('licencias-pdf').getPublicUrl(path)
-      await supabase.from('license_requests').update({ aviso_pdf_url: urlData.publicUrl }).eq('id', solicitud.id)
+    } catch (err) {
+      setError(err.message || 'Ocurrió un error al enviar la solicitud')
+    } finally {
+      setEnviando(false)
     }
-
-    // 4. Descargar PDF en el dispositivo
-    descargarPDF(pdfBytes, `aviso-licencia-${solicitud.id.slice(0,8)}.pdf`)
-
-    setEnviando(false)
-    navigate('/docente/historial')
   }
 
-  if (loading) return <div className="loading">⏳ Cargando...</div>
+  if (loading) return <div className="loading">⏳ Cargando datos...</div>
 
   const porCategoria = tipos.reduce((acc, t) => {
     const cat = t.license_categories?.nombre || 'Otros'
@@ -119,24 +172,24 @@ export default function PedirLicencia() {
     <div>
       <div className="page-header">
         <h1>Pedir Licencia</h1>
-        <p>Completá el aviso</p>
+        <p>Completá los datos para generar el aviso de licencia</p>
       </div>
 
       <div className="card card-body">
-        <form onSubmit={enviar}>
+        <form onSubmit={enviando} noValidate>
           <div className="form-group">
             <label>Tipo de licencia</label>
             <select
               value={form.license_type_id}
-              onChange={e => setForm({...form, license_type_id: e.target.value})}
+              onChange={e => setForm({ ...form, license_type_id: e.target.value })}
               required
             >
-              <option value="">— Seleccioná —</option>
-              {Object.entries(porCategoria).map(([cat, tipos]) => (
+              <option value="">— Seleccioná un tipo —</option>
+              {Object.entries(porCategoria).map(([cat, lista]) => (
                 <optgroup key={cat} label={cat}>
-                  {tipos.map(t => (
+                  {lista.map(t => (
                     <option key={t.id} value={t.id}>
-                      {t.nombre} ({t.articulo})
+                      {t.nombre} {t.articulo ? `(Art. ${t.articulo})` : ''}
                     </option>
                   ))}
                 </optgroup>
@@ -146,20 +199,20 @@ export default function PedirLicencia() {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Desde</label>
+              <label>Fecha desde</label>
               <input
                 type="date"
                 value={form.fecha_desde}
-                onChange={e => setForm({...form, fecha_desde: e.target.value})}
+                onChange={e => setForm({ ...form, fecha_desde: e.target.value })}
                 required
               />
             </div>
             <div className="form-group">
-              <label>Hasta</label>
+              <label>Fecha hasta</label>
               <input
                 type="date"
                 value={form.fecha_hasta}
-                onChange={e => setForm({...form, fecha_hasta: e.target.value})}
+                onChange={e => setForm({ ...form, fecha_hasta: e.target.value })}
                 required
               />
             </div>
@@ -167,7 +220,7 @@ export default function PedirLicencia() {
 
           {diasSolicitados > 0 && (
             <div className="alert primary" style={{ textAlign: 'center' }}>
-              📅 <strong>{diasSolicitados} días</strong> solicitados
+              📅 <strong>{diasSolicitados} día{diasSolicitados !== 1 ? 's' : ''}</strong> solicitados
             </div>
           )}
 
@@ -175,20 +228,21 @@ export default function PedirLicencia() {
             <label>Motivo / Observación</label>
             <textarea
               value={form.motivo}
-              onChange={e => setForm({...form, motivo: e.target.value})}
+              onChange={e => setForm({ ...form, motivo: e.target.value })}
               placeholder="Describí brevemente el motivo..."
+              rows="4"
               required
             />
           </div>
 
-          {error && <div className="alert danger">{error}</div>}
+          {error && <div className="alert danger">⚠️ {error}</div>}
 
           <div className="alert warning">
-            📋 Al enviar se generará automáticamente la nota de aviso en PDF. Luego deberás volver a cargar el justificativo.
+            📋 Al enviar se generará automáticamente la nota de aviso en PDF con los datos correspondientes.
           </div>
 
           <button type="submit" className="btn btn-primary btn-block" disabled={enviando}>
-            {enviando ? 'Generando PDF y enviando...' : 'Enviar aviso →'}
+            {enviando ? '⏳ Enviando...' : '✅ Enviar aviso'}
           </button>
         </form>
       </div>
