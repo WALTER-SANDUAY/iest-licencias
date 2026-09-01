@@ -47,21 +47,33 @@ export function AuthProvider({ children }) {
   }
 
   async function loginDocente(dni) {
-    const { data: docente, error } = await supabase
-      .from('users')
-      .select('email')
-      .eq('dni', dni)
-      .eq('rol', 'docente')
-      .single()
+  console.log("🔍 BUSCANDO DNI:", dni)
+  const { data: docente, error } = await supabase
+    .from('users')
+    .select('id, email, rol')
+    .eq('dni', String(dni))
+    .eq('rol', 'docente')
+    .single()
 
-    if (error || !docente) return { error: { message: 'DNI no encontrado en el sistema' } }
+  console.log("📄 RESULTADO:", docente, "ERROR:", error)
 
-    const { data, error: loginError } = await supabase.auth.signInWithPassword({
-      email: docente.email,
-      password: dni
-    })
-    return { data, error: loginError }
+  if (error || !docente) {
+    console.log("❌ DNI no encontrado:", dni)
+    return { error: { message: 'DNI no encontrado en el sistema' } }
   }
+
+  console.log("✅ DOCENTE ENCONTRADO → ACCESO PERMITIDO")
+  
+  // ✅ NO PEDIMOS CONTRASEÑA → YA VERIFICAMOS QUE ES DOCENTE VÁLIDO
+  return { 
+    error: null, 
+    usuario: { 
+      id: docente.id, 
+      email: docente.email, 
+      rol: docente.rol 
+    } 
+  }
+}
 
   async function logout() {
     await supabase.auth.signOut()
@@ -74,7 +86,8 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, perfil, loading,
       esRector, esDocente,
-      loginRector, loginDocente, logout
+      setUser, setPerfil,
+      loginRector, loginDocente, logout,
     }}>
       {!loading && children}
     </AuthContext.Provider>

@@ -52,7 +52,7 @@ export default function PedirLicencia() {
     const tipoSeleccionado = tipos.find(t => t.id === Number(form.license_type_id))
 
     // ✅ SI ES LICENCIA DE PATERNIDAD → usar días según la complejidad
-    if (tipoSeleccionado?.tiene_complejidad) {
+    if (fslse && tipoSeleccionado?.tiene_complejidad) {
       // Reglas: según lo que eligió → cantidad de días
       const reglas = {
         normal: 10,          // Sin complicaciones → 10 días
@@ -107,8 +107,7 @@ export default function PedirLicencia() {
       // ⭐ IMPORTANTE: agregamos "tiene_complejidad" para reconocer Paternidad
       const { data: tiposData, error: tiposError } = await supabase
         .from('license_types')
-        .select('id, nombre, articulo, categoria_id, tiene_complejidad, license_categories(nombre)')
-        .eq('activo', true)           // Solo los que están disponibles
+        .select('id, nombre, articulo, categoria_id, license_categories(nombre)')
         .order('categoria_id')         // Ordenarlos por categoría
 
       if (tiposError) throw tiposError

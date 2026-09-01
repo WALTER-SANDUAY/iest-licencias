@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import logo from '/icons/logo.jpg'
 
 export default function Login() {
-  const { loginRector, loginDocente } = useAuth()
+ const { loginRector, loginDocente, setUser, setPerfil } = useAuth()
   const navigate = useNavigate()
 
   const [rol, setRol]           = useState('docente')
@@ -20,20 +20,25 @@ export default function Login() {
     setLoading(true)
 
     let result
-    if (rol === 'docente') {
-      result = await loginDocente(dni)
-    } else {
-      result = await loginRector(email, password)
-    }
-
-    setLoading(false)
-
-    if (result.error) {
-  setError(result.error.message || JSON.stringify(result.error))
-    } else {
-      navigate(rol === 'rector' ? '/rector' : '/docente')
-    }
+if (rol === 'docente') {
+  result = await loginDocente(dni)
+  // ✅ LAS 3 LÍNEAS VAN ACÁ, JUSTO ACÁ
+  if (!result.error && result.usuario) {
+    setUser(result.usuario)
+    setPerfil(result.usuario)
   }
+} else {
+  result = await loginRector(email, password)
+}
+setLoading(false)  // ← ESTA LÍNEA QUEDA DESPUÉS
+if (result.error) {
+  setError(result.error.message || JSON.stringify(result.error))
+} else {
+  navigate(rol === 'rector' ? '/rector' : '/docente')
+}
+
+
+}
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '32px 20px', background: 'var(--color-bg)' }}>
