@@ -44,7 +44,7 @@ export default function Dashboard() {
       pendiente:   { cls: 'warning', label: '⏳ Pendiente' },
       doc_cargada: { cls: 'info',    label: '📎 Doc. cargada' },
       confirmada:  { cls: 'success', label: '✓ Confirmada' },
-      rechazada:   { cls: 'danger',  label: '✗ Rechazada' },
+      rechazada:   { cls: 'warning', label: '🔄 En revisión' },
     }
     const t = map[estado] || { cls: 'warning', label: estado }
     return <span className={`tag ${t.cls}`}>{t.label}</span>
@@ -73,9 +73,8 @@ export default function Dashboard() {
           <div className="stat-label">Confirmadas</div>
           <div className="stat-value">{stats.confirmadas}</div>
         </div>
-        <div className="stat-card danger">
-          <div className="stat-label">Rechazadas</div>
-          <div className="stat-value">{stats.rechazadas}</div>
+        <div className="stat-card warning">
+          <div className="stat-label">En revisión</div>
         </div>
       </div>
 

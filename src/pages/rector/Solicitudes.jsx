@@ -22,7 +22,6 @@ export default function Solicitudes() {
         license_types ( nombre, articulo )
       `)
       .order('created_at', { ascending: false })
-
     setSolicitudes(data || [])
     setLoading(false)
   }
@@ -31,7 +30,7 @@ export default function Solicitudes() {
     setGuardando(true)
     const update = { estado }
     if (dias) update.dias_confirmados = parseInt(dias)
-    if (obs)  update.observacion_rector = obs
+    if (obs) update.observacion_rector = obs
     await supabase.from('license_requests').update(update).eq('id', id)
     setGuardando(false)
     setDetalle(null)
@@ -43,7 +42,7 @@ export default function Solicitudes() {
       pendiente:   { cls: 'warning', label: '⏳ Pendiente' },
       doc_cargada: { cls: 'info',    label: '📎 Doc. cargada' },
       confirmada:  { cls: 'success', label: '✓ Confirmada' },
-      rechazada:   { cls: 'danger',  label: '✗ Rechazada' },
+      rechazada:   { cls: 'warning', label: '🔄 En revisión' },
     }
     const t = map[estado] || { cls: 'warning', label: estado }
     return <span className={`tag ${t.cls}`}>{t.label}</span>
@@ -72,7 +71,9 @@ export default function Solicitudes() {
               <div className="sol-header">
                 <div>
                   <div className="sol-name">{s.teachers?.users?.apellido}, {s.teachers?.users?.nombre}</div>
-                  <div className="sol-sub">DNI {s.teachers?.users?.dni} · {s.teachers?.carrera}</div>
+                  <div className="sol-sub">
+                    DNI {s.teachers?.users?.dni} · {s.teachers?.carrera} · {s.teachers?.curso_division || 'Sin división'}
+                  </div>
                 </div>
                 {tagEstado(s.estado)}
               </div>
@@ -96,7 +97,9 @@ export default function Solicitudes() {
               <div className="sol-header">
                 <div>
                   <div className="sol-name">{s.teachers?.users?.apellido}, {s.teachers?.users?.nombre}</div>
-                  <div className="sol-sub">DNI {s.teachers?.users?.dni} · {s.teachers?.carrera}</div>
+                  <div className="sol-sub">
+                    DNI {s.teachers?.users?.dni} · {s.teachers?.carrera} · {s.teachers?.curso_division || 'Sin división'}
+                  </div>
                 </div>
                 {tagEstado(s.estado)}
               </div>
@@ -120,12 +123,14 @@ export default function Solicitudes() {
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--color-muted)', marginBottom: 8, marginTop: 16 }}>
             Historial
           </div>
-         {resto.map(s => (
-  <div key={s.id} className="sol-card" onClick={() => { setDetalle(s); setDiasConfirmados(s.dias_solicitados); setObservacion('') }} style={{ cursor: 'pointer' }}>
+          {resto.map(s => (
+            <div key={s.id} className="sol-card" onClick={() => { setDetalle(s); setDiasConfirmados(s.dias_solicitados); setObservacion('') }} style={{ cursor: 'pointer' }}>
               <div className="sol-header">
                 <div>
                   <div className="sol-name">{s.teachers?.users?.apellido}, {s.teachers?.users?.nombre}</div>
-                  <div className="sol-sub">{s.license_types?.nombre} · {s.fecha_desde} → {s.fecha_hasta}</div>
+                  <div className="sol-sub">
+                    DNI {s.teachers?.users?.dni} · {s.teachers?.carrera} · {s.teachers?.curso_division || 'Sin división'} · {s.license_types?.nombre}
+                  </div>
                 </div>
                 {tagEstado(s.estado)}
               </div>
@@ -152,40 +157,39 @@ export default function Solicitudes() {
               <h2>{detalle.teachers?.users?.apellido}, {detalle.teachers?.users?.nombre}</h2>
               <button className="modal-close" onClick={() => setDetalle(null)}>✕</button>
             </div>
-
             <div className="info-row"><span className="info-label">Tipo</span><span className="info-value">{detalle.license_types?.nombre}</span></div>
             <div className="info-row"><span className="info-label">Artículo</span><span className="info-value">{detalle.license_types?.articulo}</span></div>
+            <div className="info-row"><span className="info-label">Docente</span><span className="info-value">{detalle.teachers?.users?.apellido}, {detalle.teachers?.users?.nombre}</span></div>
+            <div className="info-row"><span className="info-label">Carrera / División</span><span className="info-value">{detalle.teachers?.carrera} — {detalle.teachers?.curso_division || 'Sin división'}</span></div>
             <div className="info-row"><span className="info-label">Período</span><span className="info-value">{detalle.fecha_desde} → {detalle.fecha_hasta}</span></div>
             <div className="info-row"><span className="info-label">Días solicitados</span><span className="info-value">{detalle.dias_solicitados}</span></div>
             <div className="info-row"><span className="info-label">Motivo</span><span className="info-value">{detalle.motivo || '—'}</span></div>
             <div className="info-row"><span className="info-label">Estado</span><span className="info-value">{tagEstado(detalle.estado)}</span></div>
-
             <div className="divider" />
-             {/* Ver aviso PDF */}
-{detalle.aviso_pdf_url && (
-  <a href={detalle.aviso_pdf_url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-block" style={{ marginBottom: 8 }}>
-    📄 Ver nota de aviso
-  </a>
-)}
 
-{/* Ver PDF final */}
-{detalle.pdf_final_url && (
-  <a href={detalle.pdf_final_url} target="_blank" rel="noreferrer" className="btn btn-primary btn-block" style={{ marginBottom: 8 }}>
-    📄 Ver PDF completo
-  </a>
-)}
+            {detalle.aviso_pdf_url && (
+              <a href={detalle.aviso_pdf_url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-block" style={{ marginBottom: 8 }}>
+                📄 Ver nota de aviso
+              </a>
+            )}
+
+            {detalle.pdf_final_url && (
+              <a href={detalle.pdf_final_url} target="_blank" rel="noreferrer" className="btn btn-primary btn-block" style={{ marginBottom: 8 }}>
+                📄 Ver PDF completo
+              </a>
+            )}
+
             <div className="form-group">
               <label>Días a confirmar</label>
               <input type="number" value={diasConfirmados} onChange={e => setDiasConfirmados(e.target.value)} />
             </div>
             <div className="form-group">
               <label>Observación (opcional)</label>
-              <textarea value={observacion} onChange={e => setObservacion(e.target.value)} placeholder="Motivo de rechazo o aclaración..." />
+              <textarea value={observacion} onChange={e => setObservacion(e.target.value)} placeholder="Motivo de revisión o aclaración..." />
             </div>
-
             <div className="modal-footer">
-              <button className="btn btn-danger" disabled={guardando} onClick={() => cambiarEstado(detalle.id, 'rechazada', null, observacion)}>
-                ✗ Rechazar
+              <button className="btn btn-warning" disabled={guardando} onClick={() => cambiarEstado(detalle.id, 'rechazada', null, observacion)}>
+                🔄 En revisión
               </button>
               <button className="btn btn-primary" disabled={guardando} onClick={() => cambiarEstado(detalle.id, 'confirmada', diasConfirmados, observacion)}>
                 ✓ Confirmar
