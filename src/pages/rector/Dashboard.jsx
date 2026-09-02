@@ -55,7 +55,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="page-header">
-        <h1>Panel General</h1>
+        <h1>Panel General <span style={{ fontSize: '20px', opacity: 0.8, verticalAlign: 'middle' }}>🇦🇷</span></h1>
         <p>Bienvenido, {perfil?.nombre} — IEST Tinogasta</p>
       </div>
 
