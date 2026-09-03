@@ -110,52 +110,60 @@ export default function PedirLicencia() {
     try {
       const tipoSeleccionado = tipos.find(t => String(t.id) === String(form.license_type_id))
 
-      // 📄 Generar PDF
-      const pdfBytes = await generarAvisoPDF({
-        docente: {
-          nombre: teacher.users?.nombre || 'Sin nombre',
-          apellido: teacher.users?.apellido || 'Sin apellido',
-          dni: teacher.users?.dni || '00000000',
-          carrera: teacher.carrera || 'Sin carrera',
-          curso_division: teacher.curso_division || 'Sin división'
-        },
-        licencia: {
-          nombre: tipoSeleccionado?.nombre || 'Licencia',
-          articulo: tipoSeleccionado?.articulo || '—',
-          categoria: tipoSeleccionado?.license_categories?.nombre || 'Sin categoría'
-        },
-        solicitud: {
-          fecha_desde: form.fecha_desde,
-          fecha_hasta: form.fecha_hasta,
-          dias_solicitados: diasSolicitados,
-          motivo: form.motivo,
-          created_at: new Date().toISOString()
-        }
-      })
+      // 💾 PRIMERO: ARMAMOS Y GUARDAMOS LA SOLICITUD
+const solicitud = {
+  teacher_id: teacher.id,
+  license_type_id: Number(form.license_type_id),
+  fecha_desde: form.fecha_desde,
+  fecha_hasta: form.fecha_hasta,
+  dias_solicitados: diasSolicitados,
+  motivo: form.motivo,
+  estado: 'pendiente'
+}
 
-      // 💾 Guardar solicitud en la base de datos
-      const solicitud = {
-        teacher_id: teacher.id,
-        license_type_id: Number(form.license_type_id),
-        fecha_desde: form.fecha_desde,
-        fecha_hasta: form.fecha_hasta,
-        dias_solicitados: diasSolicitados,
-        motivo: form.motivo,
-        estado: 'pendiente'
-      }
+const { error: errorGuardar } = await supabase
+  .from('license_requests')
+  .insert([solicitud])
 
-      console.log('📤 Guardando solicitud:', solicitud)
+if (errorGuardar) {
+  alert('❌ no se puede enviar: ' + errorGuardar.message)
+  throw errorGuardar
+}
 
-      const { error: errorGuardar } = await supabase
-        .from('license_requests')
-        .insert([solicitud])
+// ✅ SI LLEGA ACÁ → SE GUARDÓ BIEN
+alert('✅ ¡Licencia enviada al Rector correctamente!')
 
-      if (errorGuardar) throw errorGuardar
+// 📄 DESPUÉS: INTENTAMOS GENERAR EL PDF (si falla, no importa)
+try {
+  const pdfBytes = await generarAvisoPDF({
+    docente: {
+      nombre: teacher.users?.nombre || 'Sin nombre',
+      apellido: teacher.users?.apellido || 'Sin apellido',
+      dni: teacher.users?.dni || '00000000',
+      carrera: teacher.carrera || 'Sin carrera',
+      curso_division: teacher.curso_division || 'Sin división'
+    },
+    licencia: {
+      nombre: tipoSeleccionado?.nombre || 'Licencia',
+      articulo: tipoSeleccionado?.articulo || '—',
+      categoria: tipoSeleccionado?.license_categories?.nombre || 'Sin categoría'
+    },
+    solicitud: {
+      fecha_desde: form.fecha_desde,
+      fecha_hasta: form.fecha_hasta,
+      dias_solicitados: diasSolicitados,
+      motivo: form.motivo,
+      created_at: new Date().toISOString()
+    }
+  })
+} catch (errPDF) {
+  console.warn('⚠️ El PDF tuvo un detalle pero la solicitud SÍ SE GUARDÓ:', errPDF.message)
+}
 
-      // ✅ ÉXITO
-      descargarPDF(pdfBytes, `Aviso_Licencia_${form.fecha_desde}.pdf`)
-      alert('✅ Licencia enviada correctamente. El Rector la revisará.')
-      navigate('/docente')
+navigate('/docente')
+      
+
+     
 
     } catch (err) {
       console.error('❌ Error al enviar:', err)
