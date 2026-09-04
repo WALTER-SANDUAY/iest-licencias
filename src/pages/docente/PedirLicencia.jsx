@@ -23,60 +23,71 @@ export default function PedirLicencia() {
 
   useEffect(() => { cargarDatos() }, [])
 
-  async function cargarDatos() {
-    try {
-      setLoading(true)
-      console.log('🔍 Buscando docente con correo:', user?.email)
+async function cargarDatos() {
+  try {
+    setLoading(true)
 
-      // ✅ PASO 1: Buscar docente POR CORREO (lo que cargó el Rector)
-      let { data: t, error: teacherError } = await supabase
-        .from('teachers')
-        .select('id, carrera, curso_division, user_id, users(nombre, apellido, dni)')
-        .eq('correo', user?.email) // 🔑 BUSCAMOS POR CORREO
-        .limit(1)
+    // ✅ Tomamos el DNI de la cuenta que inicia sesión
+    const dniDocente = user?.dni
+    console.log('🔍 Buscando docente con DNI:', dniDocente)
 
-      console.log('📋 Resultado docente por correo:', t, 'Error:', teacherError)
+    if (!dniDocente) {
+      setError('⚠️ Tu cuenta no tiene DNI cargado. Avisá al Rector.')
+      setLoading(false)
+      return
+    }
 
-      // ✅ PASO 2: Si lo encontramos pero NO tiene user_id → LO ENLAZAMOS AHORA
-      if (!teacherError && t && t.length > 0) {
-        const docenteEncontrado = t[0]
+    // 🔑 BUSCA POR DNI — Simple, seguro y sin errores
+    const { data: t, error: teacherError } = await supabase
+      .from('teachers')
+      .select(`
+        id, carrera, curso_division, user_id, activo,
+        users!inner ( nombre, apellido, dni )
+      `)
+      .eq('users.dni', dniDocente)
+      .eq('activo', true)
+      .limit(1)
+
+    console.log('📋 Resultado búsqueda:', t, 'Error:', teacherError)
+
+    if (!teacherError && t && t.length > 0) {
+      const docenteEncontrado = t[0]
+
+      // 🔗 Si NO está enlazado → lo enlazamos SOLO
+      if (!docenteEncontrado.user_id) {
+        console.log('🔗 Enlazando docente automáticamente...')
+        await supabase
+          .from('teachers')
+          .update({ user_id: user?.id })
+          .eq('id', docenteEncontrado.id)
         
-        if (!docenteEncontrado.user_id) {
-          console.log('🔗 Enlazando docente automáticamente...')
-          // Actualizamos el campo user_id con el ID de la cuenta
-          await supabase
-            .from('teachers')
-            .update({ user_id: user?.id })
-            .eq('id', docenteEncontrado.id)
-          
-          // Actualizamos en memoria
-          docenteEncontrado.user_id = user?.id
-          console.log('✅ Docente enlazado correctamente!')
-        }
-
-        setTeacher(docenteEncontrado)
-        console.log('✅ Docente cargado y listo:', docenteEncontrado)
-      } else {
-        console.warn('⚠️ No se encontró docente con ese correo')
+        docenteEncontrado.user_id = user?.id
+        console.log('✅ Docente enlazado correctamente!')
       }
 
-      // 📋 3. Traer tipos de licencia
-      const { data: tiposData, error: tiposError } = await supabase
-        .from('license_types')
-        .select('id, nombre, articulo, categoria_id, tiene_complejidad, license_categories(nombre)')
-        .order('categoria_id')
-
-      if (tiposError) throw tiposError
-      setTipos(tiposData || [])
-      console.log('✅ Tipos de licencia cargados:', tiposData?.length)
-
-    } catch (err) {
-      console.error('❌ Error general:', err)
-      setError('No se pudieron cargar los datos: ' + err.message)
-    } finally {
-      setLoading(false)
+      setTeacher(docenteEncontrado)
+      console.log('✅ Docente cargado y listo:', docenteEncontrado)
+    } else {
+      setError('⚠️ No se encontró docente con ese DNI. Avisá al Rector.')
+      console.warn('No hay docente cargado con DNI:', dniDocente)
     }
+
+    // 📋 Cargar tipos de licencia
+    const { data: tiposData, error: tiposError } = await supabase
+      .from('license_types')
+      .select('id, nombre, articulo, categoria_id, tiene_complejidad, license_categories(nombre)')
+      .order('categoria_id')
+
+    if (tiposError) throw tiposError
+    setTipos(tiposData || [])
+
+  } catch (err) {
+    console.error('❌ Error general:', err)
+    setError('No se pudieron cargar los datos: ' + err.message)
+  } finally {
+    setLoading(false)
   }
+}
 
   // ─── ⭐ CALCULAR DÍAS ───
   useEffect(() => {
