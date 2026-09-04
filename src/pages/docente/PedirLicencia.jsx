@@ -26,27 +26,41 @@ export default function PedirLicencia() {
   async function cargarDatos() {
     try {
       setLoading(true)
-      console.log('🔍 Buscando docente con user_id:', user?.id)
+      console.log('🔍 Buscando docente con correo:', user?.email)
 
-      // 👤 1. Traer datos del docente
-      const { data: t, error: teacherError } = await supabase
+      // ✅ PASO 1: Buscar docente POR CORREO (lo que cargó el Rector)
+      let { data: t, error: teacherError } = await supabase
         .from('teachers')
-        .select('id, carrera, curso_division, users(nombre, apellido, dni)')
-        .eq('user_id', user?.id)
+        .select('id, carrera, curso_division, user_id, users(nombre, apellido, dni)')
+        .eq('correo', user?.email) // 🔑 BUSCAMOS POR CORREO
         .limit(1)
 
-      console.log('📋 Resultado docente:', t, 'Error:', teacherError)
+      console.log('📋 Resultado docente por correo:', t, 'Error:', teacherError)
 
-      if (teacherError) {
-        console.warn('⚠️ Error buscando docente:', teacherError)
-      } else if (!t || t.length === 0) {
-        console.warn('⚠️ No se encontró docente')
+      // ✅ PASO 2: Si lo encontramos pero NO tiene user_id → LO ENLAZAMOS AHORA
+      if (!teacherError && t && t.length > 0) {
+        const docenteEncontrado = t[0]
+        
+        if (!docenteEncontrado.user_id) {
+          console.log('🔗 Enlazando docente automáticamente...')
+          // Actualizamos el campo user_id con el ID de la cuenta
+          await supabase
+            .from('teachers')
+            .update({ user_id: user?.id })
+            .eq('id', docenteEncontrado.id)
+          
+          // Actualizamos en memoria
+          docenteEncontrado.user_id = user?.id
+          console.log('✅ Docente enlazado correctamente!')
+        }
+
+        setTeacher(docenteEncontrado)
+        console.log('✅ Docente cargado y listo:', docenteEncontrado)
       } else {
-        setTeacher(t[0])
-        console.log('✅ Docente cargado:', t[0])
+        console.warn('⚠️ No se encontró docente con ese correo')
       }
 
-      // 📋 2. Traer tipos de licencia
+      // 📋 3. Traer tipos de licencia
       const { data: tiposData, error: tiposError } = await supabase
         .from('license_types')
         .select('id, nombre, articulo, categoria_id, tiene_complejidad, license_categories(nombre)')
@@ -72,7 +86,7 @@ export default function PedirLicencia() {
     }
 
     const tipoSeleccionado = tipos.find(t => String(t.id) === String(form.license_type_id))
-
+    
     if (tipoSeleccionado?.tiene_complejidad) {
       const reglas = { normal: 10, complicaciones: 15, multiple: 20 }
       setDiasSolicitados(reglas[form.complejidad] || 10)
@@ -96,74 +110,77 @@ export default function PedirLicencia() {
       setError('Completá todos los campos obligatorios')
       return
     }
+
     if (diasSolicitados <= 0) {
       setError('La fecha de fin debe ser posterior a la de inicio')
       return
     }
+
     if (!teacher?.id) {
       setError('⚠️ No se encontraron tus datos. Pedí al Rector que te cargue como docente.')
       return
     }
 
     setEnviando(true)
-
     try {
       const tipoSeleccionado = tipos.find(t => String(t.id) === String(form.license_type_id))
 
-      // 💾 PRIMERO: ARMAMOS Y GUARDAMOS LA SOLICITUD
-const solicitud = {
-  teacher_id: teacher.id,
-  license_type_id: Number(form.license_type_id),
-  fecha_desde: form.fecha_desde,
-  fecha_hasta: form.fecha_hasta,
-  dias_solicitados: diasSolicitados,
-  motivo: form.motivo,
-  estado: 'pendiente'
-}
+      // 💾 GUARDAR SOLICITUD
+      const solicitud = {
+        teacher_id: teacher.id,
+        license_type_id: Number(form.license_type_id),
+        fecha_desde: form.fecha_desde,
+        fecha_hasta: form.fecha_hasta,
+        dias_solicitados: diasSolicitados,
+        motivo: form.motivo,
+        estado: 'pendiente'
+      }
 
-const { error: errorGuardar } = await supabase
-  .from('license_requests')
-  .insert([solicitud])
+      const { error: errorGuardar } = await supabase
+        .from('license_requests')
+        .insert([solicitud])
 
-if (errorGuardar) {
-  alert('❌ no se puede enviar: ' + errorGuardar.message)
-  throw errorGuardar
-}
+      if (errorGuardar) {
+        alert('❌ no se puede enviar: ' + errorGuardar.message)
+        throw errorGuardar
+      }
 
-// ✅ SI LLEGA ACÁ → SE GUARDÓ BIEN
-alert('✅ ¡Licencia enviada al Rector correctamente!')
+      // ✅ Se guardó correctamente
+      alert('✅ ¡Licencia enviada al Rector correctamente!')
 
-// 📄 DESPUÉS: INTENTAMOS GENERAR EL PDF (si falla, no importa)
-try {
-  const pdfBytes = await generarAvisoPDF({
-    docente: {
-      nombre: teacher.users?.nombre || 'Sin nombre',
-      apellido: teacher.users?.apellido || 'Sin apellido',
-      dni: teacher.users?.dni || '00000000',
-      carrera: teacher.carrera || 'Sin carrera',
-      curso_division: teacher.curso_division || 'Sin división'
-    },
-    licencia: {
-      nombre: tipoSeleccionado?.nombre || 'Licencia',
-      articulo: tipoSeleccionado?.articulo || '—',
-      categoria: tipoSeleccionado?.license_categories?.nombre || 'Sin categoría'
-    },
-    solicitud: {
-      fecha_desde: form.fecha_desde,
-      fecha_hasta: form.fecha_hasta,
-      dias_solicitados: diasSolicitados,
-      motivo: form.motivo,
-      created_at: new Date().toISOString()
-    }
-  })
-} catch (errPDF) {
-  console.warn('⚠️ El PDF tuvo un detalle pero la solicitud SÍ SE GUARDÓ:', errPDF.message)
-}
+      // 📄 Generar PDF
+      try {
+        const pdfBytes = await generarAvisoPDF({
+          docente: {
+            nombre: teacher.users?.nombre || 'Sin nombre',
+            apellido: teacher.users?.apellido || 'Sin apellido',
+            dni: teacher.users?.dni || '00000000',
+            carrera: teacher.carrera || 'Sin carrera',
+            curso_division: teacher.curso_division || 'Sin división'
+          },
+          licencia: {
+            nombre: tipoSeleccionado?.nombre || 'Licencia',
+            articulo: tipoSeleccionado?.articulo || '—',
+            categoria: tipoSeleccionado?.license_categories?.nombre || 'Sin categoría'
+          },
+          solicitud: {
+            fecha_desde: form.fecha_desde,
+            fecha_hasta: form.fecha_hasta,
+            dias_solicitados: diasSolicitados,
+            motivo: form.motivo,
+            created_at: new Date().toISOString()
+          }
+        })
 
-navigate('/docente')
-      
+        alert('✅ ¡Licencia enviada al Rector correctamente!')
+        descargarPDF(pdfBytes, `Licencia_${form.fecha_desde}_${form.fecha_hasta}.pdf`)
+        navigate('/docente')
 
-     
+      } catch (errPDF) {
+        console.warn('⚠️ El PDF tuvo un detalle pero la solicitud SÍ SE GUARDÓ:', errPDF.message)
+        alert('✅ Licencia enviada al Rector. El PDF se generará al verla desde la lista.')
+        navigate('/docente')
+      }
 
     } catch (err) {
       console.error('❌ Error al enviar:', err)
@@ -181,7 +198,7 @@ navigate('/docente')
       <p>Completá los datos para generar el aviso de licencia</p>
 
       {error && <div style={{ background: '#ffebee', color: '#b71c1c', padding: 12, borderRadius: 6, marginBottom: 16 }}>{error}</div>}
-
+      
       {!teacher && (
         <div style={{ background: '#fff3e0', padding: 12, borderRadius: 6, marginBottom: 16 }}>
           ⚠️ <strong>No se encontró tu registro de docente.</strong><br/>
@@ -263,7 +280,9 @@ navigate('/docente')
         </div>
 
         <div style={{ background: '#e3f2fd', padding: 12, borderRadius: 6, marginBottom: 16, fontSize: 14 }}>
-          💡 Al enviar se generará automáticamente la nota de aviso en PDF.
+          💡 Al enviar se generará automáticamente la nota de aviso en PDF.<br/><br/>
+          📝 <strong>Modelo de nota sugerido (copialo y pegalo en Motivo):</strong><br/>
+          <em>"Por medio de la presente solicito se me conceda la licencia correspondiente, de acuerdo a los datos consignados en este formulario."</em>
         </div>
 
         <button

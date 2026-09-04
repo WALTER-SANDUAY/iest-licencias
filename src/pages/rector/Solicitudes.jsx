@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../services/supabase'
-
 export default function Solicitudes() {
   const [solicitudes, setSolicitudes] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [detalle, setDetalle] = useState(null)
   const [diasConfirmados, setDiasConfirmados] = useState('')
   const [observacion, setObservacion] = useState('')
@@ -12,29 +12,96 @@ export default function Solicitudes() {
   useEffect(() => { cargarSolicitudes() }, [])
 
   async function cargarSolicitudes() {
-    const { data } = await supabase
-      .from('license_requests')
-      .select(`
-        id, estado, fecha_desde, fecha_hasta, dias_solicitados,
-        dias_confirmados, motivo, observacion_rector,
-        aviso_pdf_url, justificativo_pdf_url, pdf_final_url, created_at,
-        teachers ( id, carrera, curso_division, users ( nombre, apellido, dni ) ),
-        license_types ( nombre, articulo )
-      `)
-      .order('created_at', { ascending: false })
-    setSolicitudes(data || [])
-    setLoading(false)
+    try {
+      setLoading(true)
+      setError('')
+      const { data, error: err } = await supabase
+        .from('license_requests')
+        .select(`
+          id, estado, fecha_desde, fecha_hasta, dias_solicitados,
+          dias_confirmados, motivo, observacion_rector,
+          aviso_pdf_url, justificativo_pdf_url, pdf_final_url, created_at,
+          teachers ( id, carrera, curso_division, users ( nombre, apellido, dni ) ),
+          license_types ( nombre, articulo )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (err) throw err
+      setSolicitudes(data || [])
+    } catch (err) {
+      console.error('❌ Error cargando solicitudes:', err)
+      setError('No se pudieron cargar las solicitudes: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function cambiarEstado(id, estado, dias = null, obs = null) {
-    setGuardando(true)
-    const update = { estado }
-    if (dias) update.dias_confirmados = parseInt(dias)
-    if (obs) update.observacion_rector = obs
-    await supabase.from('license_requests').update(update).eq('id', id)
-    setGuardando(false)
-    setDetalle(null)
-    cargarSolicitudes()
+    try {
+      setGuardando(true)
+      const update = { estado }
+      if (dias) update.dias_confirmados = parseInt(dias)
+      if (obs) update.observacion_rector = obs
+
+      const { error: err } = await supabase
+        .from('license_requests')
+        .update(update)
+        .eq('id', id)
+
+      if (err) throw err
+      setDetalle(null)
+      await cargarSolicitudes()
+      alert('✅ Cambio guardado correctamente')
+    } catch (err) {
+      console.error('❌ Error al guardar:', err)
+      alert('❌ No se pudo guardar: ' + err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  // 🖨️ FUNCIÓN DE IMPRESIÓN AGREGADA
+  function imprimirSolicitud(sol) {
+    const docente = sol.teachers?.users || {}
+    const tipo = sol.license_types || {}
+    const ventana = window.open('', '_blank')
+    ventana.document.write(`
+      <html>
+        <head>
+          <title>Aviso de Licencia - ${docente.apellido}, ${docente.nombre}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 30px; font-size: 14px; line-height: 1.5; }
+            h2 { text-align: center; margin-bottom: 30px; }
+            .fila { margin: 8px 0; }
+            .etiqueta { font-weight: bold; display: inline-block; width: 150px; }
+            .recuadro { border: 1px solid #ccc; padding: 15px; margin-top: 20px; border-radius: 6px; }
+            .firma { margin-top: 60px; display: flex; justify-content: space-between; }
+          </style>
+        </head>
+        <body>
+          <h2>AVISO DE LICENCIA</h2>
+          <div class="fila"><span class="etiqueta">Docente:</span> ${docente.apellido}, ${docente.nombre}</div>
+          <div class="fila"><span class="etiqueta">DNI:</span> ${docente.dni || '—'}</div>
+          <div class="fila"><span class="etiqueta">Carrera/División:</span> ${sol.teachers?.carrera || '—'} / ${sol.teachers?.curso_division || '—'}</div>
+          <div class="fila"><span class="etiqueta">Tipo de Licencia:</span> ${tipo.nombre || '—'} ${tipo.articulo ? '(Art. ' + tipo.articulo + ')' : ''}</div>
+          <div class="fila"><span class="etiqueta">Período:</span> ${sol.fecha_desde} al ${sol.fecha_hasta}</div>
+          <div class="fila"><span class="etiqueta">Días solicitados:</span> ${sol.dias_solicitados}</div>
+          ${diasConfirmados ? `<div class="fila"><span class="etiqueta">Días confirmados:</span> ${diasConfirmados}</div>` : ''}
+          <div class="recuadro">
+            <strong>Motivo:</strong><br>
+            ${sol.motivo || 'Sin motivo declarado'}
+          </div>
+          ${observacion ? `<div class="recuadro"><strong>Observación del Rector:</strong><br>${observacion}</div>` : ''}
+          <div class="firma">
+            <div>_________________________<br>Firma Docente</div>
+            <div>_________________________<br>Firma Rector/a</div>
+          </div>
+        </body>
+      </html>
+    `)
+    ventana.document.close()
+    ventana.focus()
+    setTimeout(() => ventana.print(), 250)
   }
 
   function tagEstado(estado) {
@@ -48,11 +115,12 @@ export default function Solicitudes() {
     return <span className={`tag ${t.cls}`}>{t.label}</span>
   }
 
-  if (loading) return <div className="loading">⏳ Cargando...</div>
+  if (loading) return <div className="loading">⏳ Cargando solicitudes...</div>
+  if (error) return <div style={{ padding: 20, color: 'red' }}>❌ {error}</div>
 
-  const pendientes   = solicitudes.filter(s => s.estado === 'pendiente')
-  const docCargadas  = solicitudes.filter(s => s.estado === 'doc_cargada')
-  const resto        = solicitudes.filter(s => s.estado === 'confirmada' || s.estado === 'rechazada')
+  const pendientes    = solicitudes.filter(s => s.estado === 'pendiente')
+  const docCargadas   = solicitudes.filter(s => s.estado === 'doc_cargada')
+  const resto         = solicitudes.filter(s => s.estado === 'confirmada' || s.estado === 'rechazada')
 
   return (
     <div>
@@ -172,7 +240,6 @@ export default function Solicitudes() {
                 📄 Ver nota de aviso
               </a>
             )}
-
             {detalle.pdf_final_url && (
               <a href={detalle.pdf_final_url} target="_blank" rel="noreferrer" className="btn btn-primary btn-block" style={{ marginBottom: 8 }}>
                 📄 Ver PDF completo
@@ -187,12 +254,19 @@ export default function Solicitudes() {
               <label>Observación (opcional)</label>
               <textarea value={observacion} onChange={e => setObservacion(e.target.value)} placeholder="Motivo de revisión o aclaración..." />
             </div>
+
             <div className="modal-footer">
               <button className="btn btn-warning" disabled={guardando} onClick={() => cambiarEstado(detalle.id, 'rechazada', null, observacion)}>
                 🔄 En revisión
               </button>
               <button className="btn btn-primary" disabled={guardando} onClick={() => cambiarEstado(detalle.id, 'confirmada', diasConfirmados, observacion)}>
                 ✓ Confirmar
+              </button>
+              <button
+                onClick={() => imprimirSolicitud(detalle)}
+                style={{ padding: '6px 10px', margin: '0 4px', background: '#4caf50', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+              >
+                🖨️ Imprimir
               </button>
             </div>
           </div>
