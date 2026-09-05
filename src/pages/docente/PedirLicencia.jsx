@@ -41,49 +41,47 @@ export default function PedirLicencia() {
     }
   }, [form.fecha_desde, form.fecha_hasta])
 
- async function cargarDatos() {
-  try {
-    setError('')
-    setAviso('')
+  async function cargarDatos() {
+    try {
+      setError('')
+      setAviso('')
+      const userId = user?.id
+      console.log('🔍 Buscando docente con user_id:', userId)
 
-    const userId = user?.id
-    console.log('🔍 Buscando docente con user_id:', userId)
+      // 🔹 Busca AL DOCENTE QUE ESTÁ EN LA SESIÓN (sin código fijo)
+      let { data: t, error: teacherError } = await supabase
+        .from('teachers')
+        .select('carrera, curso_division')
+        .eq('user_id', userId)
+        .maybeSingle()
 
-    // 🔹 Busca EXACTAMENTE tu código que YA EXISTE
-    let { data: t, error: teacherError } = await supabase
-      .from('teachers')
-      .select('carrera, curso_division')
-      .eq('user_id', userId) // TU CÓDIGO EXACTO
-      .maybeSingle()
+      if (teacherError) throw teacherError
+      if (!t) {
+        setError('⚠️ No se encontró tu ficha. El código es correcto pero falta permiso.')
+        console.log('❌ No se encontró')
+        return
+      }
 
-    if (teacherError) throw teacherError
+      console.log('✅ DOCENTE ENCONTRADO:', t)
+      setTeacher(t)
 
-    if (!t) {
-      setError('⚠️ No se encontró tu ficha. El código es correcto pero falta permiso.')
-      console.log('❌ No se encontró')
-      return
+      // 🔹 Cargar tipos de licencia
+      const { data: tiposData, error: tiposError } = await supabase
+        .from('license_types')
+        .select('id, nombre, articulo, categoria_id, license_categories(nombre)')
+        .eq('activo', true)
+        .order('categoria_id')
+
+      if (tiposError) throw tiposError
+      setTipos(tiposData || [])
+    } catch (err) {
+      console.error('❌ Error:', err)
+      setError('Ocurrió un problema: ' + err.message)
+    } finally {
+      setLoading(false)
     }
-
-    console.log('✅ DOCENTE ENCONTRADO:', t)
-    setTeacher(t)
-
-    // 🔹 Cargar tipos de licencia
-    const { data: tiposData, error: tiposError } = await supabase
-      .from('license_types')
-      .select('id, nombre, articulo, categoria_id, license_categories(nombre)')
-      .eq('activo', true)
-      .order('categoria_id')
-
-    if (tiposError) throw tiposError
-    setTipos(tiposData || [])
-
-  } catch (err) {
-    console.error('❌ Error:', err)
-    setError('Ocurrió un problema: ' + err.message)
-  } finally {
-    setLoading(false)
   }
-}
+
   async function enviar(e) {
     e.preventDefault()
     setError('')
@@ -102,30 +100,34 @@ export default function PedirLicencia() {
       const tipoSeleccionado = tipos.find(t => t.id === Number(form.license_type_id))
       if (!tipoSeleccionado) throw new Error('Tipo de licencia no válido')
 
-      // 🔹 Buscamos tu registro para obtener el ID
+      // 🔹 Buscamos tu registro SIN código fijo
       const { data: docenteCompleto } = await supabase
-  .from('teachers')
-  .select('*')
-  .eq('id', 'c64e4443-b6f6-4829-8db5-d0409d036941')
-  .single()
+        .from('teachers')
+        .select('*')
+        .eq('user_id', user?.id) // ✅ BUSCA AL USUARIO REAL
+        .single()
 
       if (!docenteCompleto) throw new Error('No se encontró tu registro de docente')
-// Buscamos el campo que SÍ existe en tu tabla
-const teacherId = docenteCompleto.teacher_id || docenteCompleto.id
-if (!teacherId) {
-  console.log('📋 Datos del docente:', docenteCompleto)
-  throw new Error('No se pudo identificar tu registro. Revisá la consola.')
-}
+
+      // Buscamos el campo que SÍ existe en tu tabla
+      const teacherId = docenteCompleto.teacher_id || docenteCompleto.id
+      if (!teacherId) {
+        console.log('📋 Datos del docente:', docenteCompleto)
+        throw new Error('No se pudo identificar tu registro. Revisá la consola.')
+      }
+
       // 1. Guardar solicitud
-      .insert({
-  teacher_id: teacherId,  // ✅ SIN comillas, solo la palabra teacherId
-  license_type_id: Number(form.license_type_id),
-  fecha_desde: form.fecha_desde,
-  fecha_hasta: form.fecha_hasta,
-  dias_solicitados: diasSolicitados,
-  motivo: form.motivo.trim(),
-  estado: 'pendiente'
-})
+      const { data: solicitud, error: insertError } = await supabase
+        .from('license_requests')
+        .insert({
+          teacher_id: teacherId, // ✅ ID REAL, SIN CÓDIGO FIJO
+          license_type_id: Number(form.license_type_id),
+          fecha_desde: form.fecha_desde,
+          fecha_hasta: form.fecha_hasta,
+          dias_solicitados: diasSolicitados,
+          motivo: form.motivo.trim(),
+          estado: 'pendiente'
+        })
         .select()
         .single()
 
@@ -165,7 +167,6 @@ if (!teacherId) {
       // 4. Descargar y redirigir
       descargarPDF(pdfBytes, `aviso-licencia-${solicitud.id.slice(0, 8)}.pdf`)
       navigate('/docente/historial', { state: { mensaje: '✅ Licencia enviada correctamente' } })
-
     } catch (err) {
       console.error('❌ Error al enviar:', err)
       setError(err.message || 'No se pudo enviar la solicitud')
@@ -195,7 +196,7 @@ if (!teacherId) {
       {error && <div className="alert danger">⚠️ {error}</div>}
 
       <div className="card card-body">
-        <form onSubmit={enviando} noValidate>
+        <form onSubmit={enviar} noValidate>
           <div className="form-group">
             <label>Tipo de licencia *</label>
             <select
