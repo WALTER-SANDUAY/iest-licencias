@@ -53,7 +53,7 @@ export default function PedirLicencia() {
     let { data: t, error: teacherError } = await supabase
       .from('teachers')
       .select('carrera, curso_division')
-      .eq('user_id', '8030b28c-9b44-4980-adbb-d89c6ce8633b') // TU CÓDIGO EXACTO
+      .eq('user_id', userId) // TU CÓDIGO EXACTO
       .maybeSingle()
 
     if (teacherError) throw teacherError
@@ -117,17 +117,15 @@ if (!teacherId) {
   throw new Error('No se pudo identificar tu registro. Revisá la consola.')
 }
       // 1. Guardar solicitud
-      const { data: solicitud, error: insertError } = await supabase
-        .from('license_requests')
-        .insert({
-          teacher_id: 'c64e4443-b6f6-4829-8db5-d0409d036941',
-          license_type_id: Number(form.license_type_id),
-          fecha_desde: form.fecha_desde,
-          fecha_hasta: form.fecha_hasta,
-          dias_solicitados: diasSolicitados,
-          motivo: form.motivo.trim(),
-          estado: 'pendiente'
-        })
+      .insert({
+  teacher_id: teacherId,  // ✅ SIN comillas, solo la palabra teacherId
+  license_type_id: Number(form.license_type_id),
+  fecha_desde: form.fecha_desde,
+  fecha_hasta: form.fecha_hasta,
+  dias_solicitados: diasSolicitados,
+  motivo: form.motivo.trim(),
+  estado: 'pendiente'
+})
         .select()
         .single()
 
