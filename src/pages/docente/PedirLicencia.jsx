@@ -110,7 +110,7 @@ export default function PedirLicencia() {
       if (!docenteCompleto) throw new Error('No se encontró tu registro de docente')
 
       // Buscamos el campo que SÍ existe en tu tabla
-      const teacherId = docenteCompleto.user_id || docenteCompleto.id
+      const teacherId = docenteCompleto.user_id
       if (!teacherId) {
         console.log('📋 Datos del docente:', docenteCompleto)
         throw new Error('No se pudo identificar tu registro. Revisá la consola.')
