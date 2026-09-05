@@ -8,9 +8,7 @@ export default function Solicitudes() {
   const [diasConfirmados, setDiasConfirmados] = useState('')
   const [observacion, setObservacion] = useState('')
   const [guardando, setGuardando] = useState(false)
-
   useEffect(() => { cargarSolicitudes() }, [])
-
   async function cargarSolicitudes() {
     try {
       setLoading(true)
@@ -21,11 +19,10 @@ export default function Solicitudes() {
           id, estado, fecha_desde, fecha_hasta, dias_solicitados,
           dias_confirmados, motivo, observacion_rector,
           aviso_pdf_url, justificativo_pdf_url, pdf_final_url, created_at,
-          teachers ( id, carrera, curso_division, users ( nombre, apellido, dni ) ),
+          teachers ( carrera, curso_division, users ( nombre, apellido, dni ) ),
           license_types ( nombre, articulo )
         `)
         .order('created_at', { ascending: false })
-
       if (err) throw err
       setSolicitudes(data || [])
     } catch (err) {
@@ -35,19 +32,16 @@ export default function Solicitudes() {
       setLoading(false)
     }
   }
-
   async function cambiarEstado(id, estado, dias = null, obs = null) {
     try {
       setGuardando(true)
       const update = { estado }
       if (dias) update.dias_confirmados = parseInt(dias)
       if (obs) update.observacion_rector = obs
-
       const { error: err } = await supabase
         .from('license_requests')
         .update(update)
         .eq('id', id)
-
       if (err) throw err
       setDetalle(null)
       await cargarSolicitudes()
@@ -59,7 +53,6 @@ export default function Solicitudes() {
       setGuardando(false)
     }
   }
-
   // 🖨️ FUNCIÓN DE IMPRESIÓN AGREGADA
   function imprimirSolicitud(sol) {
     const docente = sol.teachers?.users || {}
@@ -103,7 +96,6 @@ export default function Solicitudes() {
     ventana.focus()
     setTimeout(() => ventana.print(), 250)
   }
-
   function tagEstado(estado) {
     const map = {
       pendiente:   { cls: 'warning', label: '⏳ Pendiente' },
@@ -114,21 +106,17 @@ export default function Solicitudes() {
     const t = map[estado] || { cls: 'warning', label: estado }
     return <span className={`tag ${t.cls}`}>{t.label}</span>
   }
-
   if (loading) return <div className="loading">⏳ Cargando solicitudes...</div>
   if (error) return <div style={{ padding: 20, color: 'red' }}>❌ {error}</div>
-
   const pendientes    = solicitudes.filter(s => s.estado === 'pendiente')
   const docCargadas   = solicitudes.filter(s => s.estado === 'doc_cargada')
   const resto         = solicitudes.filter(s => s.estado === 'confirmada' || s.estado === 'rechazada')
-
   return (
     <div>
       <div className="page-header">
         <h1>Solicitudes</h1>
         <p>{pendientes.length + docCargadas.length} requieren atención</p>
       </div>
-
       {pendientes.length > 0 && (
         <>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--color-muted)', marginBottom: 8 }}>
@@ -154,7 +142,6 @@ export default function Solicitudes() {
           ))}
         </>
       )}
-
       {docCargadas.length > 0 && (
         <>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--color-muted)', marginBottom: 8, marginTop: 16 }}>
@@ -185,7 +172,6 @@ export default function Solicitudes() {
           ))}
         </>
       )}
-
       {resto.length > 0 && (
         <>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--color-muted)', marginBottom: 8, marginTop: 16 }}>
@@ -208,14 +194,12 @@ export default function Solicitudes() {
           ))}
         </>
       )}
-
       {solicitudes.length === 0 && (
         <div className="empty">
           <div className="empty-icon">📋</div>
           <p>No hay solicitudes aún</p>
         </div>
       )}
-
       {/* Modal detalle */}
       {detalle && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setDetalle(null)}>
@@ -234,7 +218,6 @@ export default function Solicitudes() {
             <div className="info-row"><span className="info-label">Motivo</span><span className="info-value">{detalle.motivo || '—'}</span></div>
             <div className="info-row"><span className="info-label">Estado</span><span className="info-value">{tagEstado(detalle.estado)}</span></div>
             <div className="divider" />
-
             {detalle.aviso_pdf_url && (
               <a href={detalle.aviso_pdf_url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-block" style={{ marginBottom: 8 }}>
                 📄 Ver nota de aviso
@@ -245,7 +228,6 @@ export default function Solicitudes() {
                 📄 Ver PDF completo
               </a>
             )}
-
             <div className="form-group">
               <label>Días a confirmar</label>
               <input type="number" value={diasConfirmados} onChange={e => setDiasConfirmados(e.target.value)} />
@@ -254,7 +236,6 @@ export default function Solicitudes() {
               <label>Observación (opcional)</label>
               <textarea value={observacion} onChange={e => setObservacion(e.target.value)} placeholder="Motivo de revisión o aclaración..." />
             </div>
-
             <div className="modal-footer">
               <button className="btn btn-warning" disabled={guardando} onClick={() => cambiarEstado(detalle.id, 'rechazada', null, observacion)}>
                 🔄 En revisión
