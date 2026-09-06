@@ -79,12 +79,12 @@ export default function Solicitudes() {
           <div class="fila"><span class="etiqueta">Tipo de Licencia:</span> ${tipo.nombre || '—'} ${tipo.articulo ? '(Art. ' + tipo.articulo + ')' : ''}</div>
           <div class="fila"><span class="etiqueta">Período:</span> ${sol.fecha_desde} al ${sol.fecha_hasta}</div>
           <div class="fila"><span class="etiqueta">Días solicitados:</span> ${sol.dias_solicitados}</div>
-          ${diasConfirmados ? `<div class="fila"><span class="etiqueta">Días confirmados:</span> ${diasConfirmados}</div>` : ''}
+          ${sol.dias_confirmados ? `<div class="fila"><span class="etiqueta">Días confirmados:</span> ${sol.dias_confirmados}</div>` : ''}
           <div class="recuadro">
             <strong>Motivo:</strong><br>
             ${sol.motivo || 'Sin motivo declarado'}
           </div>
-          ${observacion ? `<div class="recuadro"><strong>Observación del Rector:</strong><br>${observacion}</div>` : ''}
+          ${sol.observacion_rector ? `<div class="recuadro"><strong>Observación del Rector:</strong><br>${sol.observacion_rector}</div>` : ''}
           <div class="firma">
             <div>_________________________<br>Firma Docente</div>
             <div>_________________________<br>Firma Rector/a</div>
