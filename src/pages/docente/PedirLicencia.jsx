@@ -48,7 +48,6 @@ export default function PedirLicencia() {
       const userId = user?.id
       console.log('🔍 Buscando docente con user_id:', userId)
 
-      // 🔹 Busca AL DOCENTE QUE ESTÁ EN LA SESIÓN (sin código fijo)
       let { data: t, error: teacherError } = await supabase
         .from('teachers')
         .select('carrera, curso_division')
@@ -57,15 +56,13 @@ export default function PedirLicencia() {
 
       if (teacherError) throw teacherError
       if (!t) {
-        setError('⚠️ No se encontró tu ficha. El código es correcto pero falta permiso.')
+        setError('⚠️ No se encontró tu ficha. Revisá tus datos.')
         console.log('❌ No se encontró')
         return
       }
-
       console.log('✅ DOCENTE ENCONTRADO:', t)
       setTeacher(t)
 
-      // 🔹 Cargar tipos de licencia
       const { data: tiposData, error: tiposError } = await supabase
         .from('license_types')
         .select('id, nombre, articulo, categoria_id, license_categories(nombre)')
@@ -95,45 +92,37 @@ export default function PedirLicencia() {
     if (!form.motivo.trim()) return setError('Escribí el motivo de la licencia')
 
     setEnviando(true)
-
     try {
       const tipoSeleccionado = tipos.find(t => t.id === Number(form.license_type_id))
       if (!tipoSeleccionado) throw new Error('Tipo de licencia no válido')
 
-      // 🔹 Buscamos tu registro SIN código fijo
-      const { data: docenteCompleto } = await supabase
-        .from('teachers')
-        .select('*')
-        .eq('user_id', user?.id) // ✅ BUSCA AL USUARIO REAL
-        .single()
+      // 🔹 Buscamos tu registro completo
+      const { data: docenteCompleto, error: docenteError } = await supabase
+  .from('teachers')
+  .select('*')
+  .eq('user_id', user?.id)
+  .maybeSingle()
 
-      if (!docenteCompleto) throw new Error('No se encontró tu registro de docente')
-
-      // Buscamos el campo que SÍ existe en tu tabla
-      const teacherId = docenteCompleto.id 
-      if (!teacherId) {
-        console.log('📋 Datos del docente:', docenteCompleto)
-        throw new Error('No se pudo identificar tu registro. Revisá la consola.')
-      }
-
-      // 1. Guardar solicitud
-      const { data: solicitud, error: insertError } = await supabase
-        .from('license_requests')
-        .insert({
-          teacher_id: teacherId, // ✅ ID REAL, SIN CÓDIGO FIJO
-          license_type_id: Number(form.license_type_id),
-          fecha_desde: form.fecha_desde,
-          fecha_hasta: form.fecha_hasta,
-          dias_solicitados: diasSolicitados,
-          motivo: form.motivo.trim(),
-          estado: 'pendiente'
-        })
-        .select()
-        .single()
+if (docenteError) throw docenteError
+const teacherId = user.id
+console.log('🆔 ID que guardamos:', teacherId)
+const { data: solicitud, error: insertError } = await supabase
+  .from('license_requests')
+  .insert({
+    teacher_id: teacherId,  // ✅ El UUID correcto
+    license_type_id: Number(form.license_type_id),
+    fecha_desde: form.fecha_desde,
+    fecha_hasta: form.fecha_hasta,
+    dias_solicitados: diasSolicitados,
+    motivo: form.motivo.trim(),
+    estado: 'pendiente'
+  })
+  .select()
+  .single()
 
       if (insertError) throw insertError
 
-      // 2. Generar PDF
+      // ✅ 2. Generar PDF
       const pdfBytes = await generarAvisoPDF({
         docente: {
           nombre: teacher?.users?.nombre || '',
@@ -153,7 +142,7 @@ export default function PedirLicencia() {
         }
       })
 
-      // 3. Subir PDF
+      // ✅ 3. Subir PDF
       const path = `avisos/${solicitud.id}.pdf`
       const { error: uploadError } = await supabase.storage
         .from('licencias-pdf')
@@ -164,9 +153,10 @@ export default function PedirLicencia() {
         await supabase.from('license_requests').update({ aviso_pdf_url: urlData.publicUrl }).eq('id', solicitud.id)
       }
 
-      // 4. Descargar y redirigir
+      // ✅ 4. Descargar y redirigir
       descargarPDF(pdfBytes, `aviso-licencia-${solicitud.id.slice(0, 8)}.pdf`)
       navigate('/docente/historial', { state: { mensaje: '✅ Licencia enviada correctamente' } })
+
     } catch (err) {
       console.error('❌ Error al enviar:', err)
       setError(err.message || 'No se pudo enviar la solicitud')
