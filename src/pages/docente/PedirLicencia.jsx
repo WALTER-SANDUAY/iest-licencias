@@ -104,7 +104,7 @@ export default function PedirLicencia() {
   .maybeSingle()
 
 if (docenteError) throw docenteError
-const teacherId = user.id
+const teacherId = docenteCompleto.id   // ✅ ESTA ES LA CORRECTA
 console.log('🆔 ID que guardamos:', teacherId)
 const { data: solicitud, error: insertError } = await supabase
   .from('license_requests')
