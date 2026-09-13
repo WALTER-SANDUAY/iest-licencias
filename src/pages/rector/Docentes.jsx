@@ -9,14 +9,12 @@ export default function docentes() {
   const [detalle, setDetalle] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
-
   const [form, setForm] = useState({
     nombre: '', apellido: '', dni: '',
     telefono: '', domicilio: '', cargo: 'docente',
-    horas_titulares: 0,           // ✅ NUEVO
-    disponibilidad: 'Completa'    // ✅ NUEVO
+    horas_titulares: 0,
+    disponibilidad: 'Completa'
   })
-
   const [asignaciones, setAsignaciones] = useState([
     { carrera_id: '', curso_id: '', materia: '' }
   ])
@@ -27,13 +25,18 @@ export default function docentes() {
     try {
       setLoading(true)
       setError('')
-
-      const { data: doc } = await supabase.from('docentes').select('*').order('apellido', { ascending: true })
+      // ✅ CORREGIDO: usa tabla teachers
+      const { data: doc } = await supabase
+        .from('teachers')
+        .select('*')
+        .order('apellido', { ascending: true })
       setDocentes(doc || [])
 
-      const { data: carr } = await supabase.from('carreras').select('*').order('nombre')
+      const { data: carr } = await supabase
+        .from('carreras')
+        .select('*')
+        .order('nombre')
       setCarreras(carr || [])
-
     } catch (err) {
       setError('Error al cargar datos')
     } finally {
@@ -41,55 +44,58 @@ export default function docentes() {
     }
   }
 
-async function guardarDocente(e) {
-  e.preventDefault()
-  setGuardando(true)
-  setError('')
-  try {
-    // ✅ SOLO GUARDAMOS EN LA TABLA docentes, SIN crear usuario de auth
-    const { data: docentes, error: insertErr } = await supabase.from('docentes').insert({
-      nombre: form.nombre.trim(),
-      apellido: form.apellido.trim(),
-      dni: form.dni.trim(),
-      telefono: form.telefono?.trim() || null,
-      domicilio: form.domicilio?.trim() || null,
-      cargo: form.cargo,
-      horas_titulares: form.horas_titulares || 0,
-      disponibilidad: form.disponibilidad || 'Completa'
-    }).select().single()
+  async function guardarDocente(e) {
+    e.preventDefault()
+    setGuardando(true)
+    setError('')
+    try {
+      // ✅ CORREGIDO: guarda en tabla teachers
+      const { data: docentes, error: insertErr } = await supabase
+        .from('teachers')
+        .insert({
+          nombre: form.nombre.trim(),
+          apellido: form.apellido.trim(),
+          dni: form.dni.trim(),
+          telefono: form.telefono?.trim() || null,
+          domicilio: form.domicilio?.trim() || null,
+          cargo: form.cargo,
+          horas_titulares: form.horas_titulares || 0,
+          disponibilidad: form.disponibilidad || 'Completa'
+        })
+        .select()
+        .single()
 
-    if (insertErr) throw insertErr
+      if (insertErr) throw insertErr
 
-    // ✅ Guardar asignaciones (si hay)
-    const asignacionesValidas = asignaciones.filter(a => a.carrera_id || a.materia)
-    if (asignacionesValidas.length > 0) {
-      const paraGuardar = asignacionesValidas.map(a => ({
-        docentes_id: docentes.id,
-        carrera_id: a.carrera_id || null,
-        curso_division: a.curso_id?.trim() || null,
-        materia: a.materia?.trim() || null
-      }))
-      await supabase.from('asignaciones').insert(paraGuardar)
+      // ✅ Guardar asignaciones (si hay)
+      const asignacionesValidas = asignaciones.filter(a => a.carrera_id || a.materia)
+      if (asignacionesValidas.length > 0) {
+        const paraGuardar = asignacionesValidas.map(a => ({
+          teachers_id: docentes.id,
+          carrera_id: a.carrera_id || null,
+          curso_division: a.curso_id?.trim() || null,
+          materia: a.materia?.trim() || null
+        }))
+        await supabase.from('asignaciones').insert(paraGuardar)
+      }
+
+      // ✅ Limpiar formulario
+      setForm({
+        nombre: '', apellido: '', dni: '',
+        telefono: '', domicilio: '', cargo: 'docente',
+        horas_titulares: 0,
+        disponibilidad: 'Completa'
+      })
+      setAsignaciones([{ carrera_id: '', curso_id: '', materia: '' }])
+      setModalOpen(false)
+      cargarTodo()
+    } catch (err) {
+      console.error(err)
+      setError(err.message || 'Error al guardar')
+    } finally {
+      setGuardando(false)
     }
-
-    // ✅ Limpiar formulario
-    setForm({
-      nombre: '', apellido: '', dni: '',
-      telefono: '', domicilio: '', cargo: 'docente',
-      horas_titulares: 0,
-      disponibilidad: 'Completa'
-    })
-    setAsignaciones([{ carrera_id: '', curso_id: '', materia: '' }])
-    setModalOpen(false)
-    cargarTodo()
-
-  } catch (err) {
-    console.error(err)
-    setError(err.message || 'Error al guardar')
-  } finally {
-    setGuardando(false)
   }
-}
 
   function agregarAsignacion() {
     setAsignaciones([...asignaciones, { carrera_id: '', curso_id: '', materia: '' }])
@@ -141,7 +147,6 @@ async function guardarDocente(e) {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: 'white', padding: '30px', borderRadius: '10px', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Cargar Nuevo Personal</h3>
-
             <form onSubmit={guardarDocente}>
               <div style={{ display: 'grid', gap: '12px', marginBottom: '20px' }}>
                 <div>
@@ -153,7 +158,6 @@ async function guardarDocente(e) {
                     style={{ width: '100%', padding: '8px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px' }}
                   />
                 </div>
-
                 <div>
                   <label>Apellido</label>
                   <input
@@ -163,7 +167,6 @@ async function guardarDocente(e) {
                     style={{ width: '100%', padding: '8px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px' }}
                   />
                 </div>
-
                 <div>
                   <label>DNI</label>
                   <input
@@ -173,7 +176,6 @@ async function guardarDocente(e) {
                     style={{ width: '100%', padding: '8px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px' }}
                   />
                 </div>
-
                 <div>
                   <label>Teléfono</label>
                   <input
@@ -183,7 +185,6 @@ async function guardarDocente(e) {
                     style={{ width: '100%', padding: '8px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px' }}
                   />
                 </div>
-
                 <div>
                   <label>Domicilio</label>
                   <input
@@ -193,7 +194,6 @@ async function guardarDocente(e) {
                     style={{ width: '100%', padding: '8px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px' }}
                   />
                 </div>
-
                 <div>
                   <label>Cargo / Función</label>
                   <select
@@ -210,8 +210,6 @@ async function guardarDocente(e) {
                     <option value="Coordinador de Carrera">Coordinador de Carrera</option>
                   </select>
                 </div>
-
-                {/* ✅ NUEVO: HORAS TITULARES */}
                 <div>
                   <label>Horas Titulares</label>
                   <input
@@ -222,8 +220,6 @@ async function guardarDocente(e) {
                     placeholder="Ej: 20"
                   />
                 </div>
-
-                {/* ✅ NUEVO: DISPONIBILIDAD */}
                 <div>
                   <label>Disponibilidad</label>
                   <select
@@ -238,11 +234,8 @@ async function guardarDocente(e) {
                     <option value="Reducida">Reducida</option>
                   </select>
                 </div>
-
                 <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid #eee' }} />
-
                 <h4 style={{ margin: '5px 0 10px 0' }}>Asignación a Carrera / Materia (opcional)</h4>
-
                 {asignaciones.map((a, idx) => (
                   <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                     <div>
@@ -292,7 +285,6 @@ async function guardarDocente(e) {
                     </div>
                   </div>
                 ))}
-
                 <button
                   type="button"
                   onClick={agregarAsignacion}
@@ -301,7 +293,6 @@ async function guardarDocente(e) {
                   + Agregar otra carrera/materia
                 </button>
               </div>
-
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
                 <button
                   type="button"
