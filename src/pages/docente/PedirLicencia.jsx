@@ -48,8 +48,9 @@ export default function PedirLicencia() {
       const userId = user?.id
       console.log('🔍 Buscando docente con user_id:', userId)
 
+      // ✅ CAMBIADO: 'docentes' en lugar de 'teachers'
       let { data: t, error: teacherError } = await supabase
-        .from('teachers')
+        .from('docentes')
         .select('carrera, curso_division')
         .eq('user_id', userId)
         .maybeSingle()
@@ -97,28 +98,32 @@ export default function PedirLicencia() {
       if (!tipoSeleccionado) throw new Error('Tipo de licencia no válido')
 
       // 🔹 Buscamos tu registro completo
+      // ✅ CAMBIADO: 'docentes' en lugar de 'teachers'
       const { data: docenteCompleto, error: docenteError } = await supabase
-  .from('teachers')
-  .select('*')
-  .eq('user_id', user?.id)
-  .maybeSingle()
+        .from('docentes')
+        .select('*')
+        .eq('user_id', user?.id)
+        .maybeSingle()
 
-if (docenteError) throw docenteError
-const teacherId = docenteCompleto.id   // ✅ ESTA ES LA CORRECTA
-console.log('🆔 ID que guardamos:', teacherId)
-const { data: solicitud, error: insertError } = await supabase
-  .from('license_requests')
-  .insert({
-    teacher_id: teacherId,  // ✅ El UUID correcto
-    license_type_id: Number(form.license_type_id),
-    fecha_desde: form.fecha_desde,
-    fecha_hasta: form.fecha_hasta,
-    dias_solicitados: diasSolicitados,
-    motivo: form.motivo.trim(),
-    estado: 'pendiente'
-  })
-  .select()
-  .single()
+      if (docenteError) throw docenteError
+
+      // ✅ Usamos el ID de la tabla docentes
+      const teacherId = docenteCompleto.id
+      console.log('🆔 ID que guardamos:', teacherId)
+
+      const { data: solicitud, error: insertError } = await supabase
+        .from('license_requests')
+        .insert({
+          teacher_id: teacherId,
+          license_type_id: Number(form.license_type_id),
+          fecha_desde: form.fecha_desde,
+          fecha_hasta: form.fecha_hasta,
+          dias_solicitados: diasSolicitados,
+          motivo: form.motivo.trim(),
+          estado: 'pendiente'
+        })
+        .select()
+        .single()
 
       if (insertError) throw insertError
 

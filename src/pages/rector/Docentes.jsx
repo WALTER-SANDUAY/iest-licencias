@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../services/supabase'
 
-export default function Docentes() {
+export default function docentes() {
   const [docentes, setDocentes] = useState([])
   const [carreras, setCarreras] = useState([])
   const [loading, setLoading] = useState(true)
@@ -12,7 +12,7 @@ export default function Docentes() {
 
   const [form, setForm] = useState({
     nombre: '', apellido: '', dni: '',
-    telefono: '', domicilio: '', cargo: 'Docente',
+    telefono: '', domicilio: '', cargo: 'docente',
     horas_titulares: 0,           // ✅ NUEVO
     disponibilidad: 'Completa'    // ✅ NUEVO
   })
@@ -28,7 +28,7 @@ export default function Docentes() {
       setLoading(true)
       setError('')
 
-      const { data: doc } = await supabase.from('teachers').select('*').order('apellido', { ascending: true })
+      const { data: doc } = await supabase.from('docentes').select('*').order('apellido', { ascending: true })
       setDocentes(doc || [])
 
       const { data: carr } = await supabase.from('carreras').select('*').order('nombre')
@@ -41,68 +41,55 @@ export default function Docentes() {
     }
   }
 
-  async function guardarDocente(e) {
-    e.preventDefault()
-    setGuardando(true)
-    setError('')
+async function guardarDocente(e) {
+  e.preventDefault()
+  setGuardando(true)
+  setError('')
+  try {
+    // ✅ SOLO GUARDAMOS EN LA TABLA docentes, SIN crear usuario de auth
+    const { data: docentes, error: insertErr } = await supabase.from('docentes').insert({
+      nombre: form.nombre.trim(),
+      apellido: form.apellido.trim(),
+      dni: form.dni.trim(),
+      telefono: form.telefono?.trim() || null,
+      domicilio: form.domicilio?.trim() || null,
+      cargo: form.cargo,
+      horas_titulares: form.horas_titulares || 0,
+      disponibilidad: form.disponibilidad || 'Completa'
+    }).select().single()
 
-    try {
-      // 1. Crear usuario en auth
-      const correo = `${form.dni}@iest.edu.ar`
-      const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
-        email: correo,
-        password: form.dni,
-        email_confirm: true
-      })
+    if (insertErr) throw insertErr
 
-      if (authErr) throw authErr
-      const newId = authData.user.id
-
-      // 2. Guardar datos del docente
-      const { data: teacher, error: insertErr } = await supabase.from('teachers').insert({
-        user_id: newId,
-        nombre: form.nombre.trim(),
-        apellido: form.apellido.trim(),
-        dni: form.dni.trim(),
-        telefono: form.telefono?.trim() || null,
-        domicilio: form.domicilio?.trim() || null,
-        cargo: form.cargo,
-        horas_titulares: form.horas_titulares || 0,      // ✅ NUEVO
-        disponibilidad: form.disponibilidad || 'Completa' // ✅ NUEVO
-      }).select().single()
-
-      if (insertErr) throw insertErr
-
-      // 3. Guardar asignaciones (si hay)
-      const asignacionesValidas = asignaciones.filter(a => a.carrera_id || a.materia)
-      if (asignacionesValidas.length > 0) {
-        const paraGuardar = asignacionesValidas.map(a => ({
-          teacher_id: teacher.id,
-          carrera_id: a.carrera_id || null,
-          curso_division: a.curso_id?.trim() || null,
-          materia: a.materia?.trim() || null
-        }))
-        await supabase.from('asignaciones').insert(paraGuardar)
-      }
-
-      // ✅ Limpiar formulario
-      setForm({
-        nombre: '', apellido: '', dni: '',
-        telefono: '', domicilio: '', cargo: 'Docente',
-        horas_titulares: 0,
-        disponibilidad: 'Completa'
-      })
-      setAsignaciones([{ carrera_id: '', curso_id: '', materia: '' }])
-      setModalOpen(false)
-      cargarTodo()
-
-    } catch (err) {
-      console.error(err)
-      setError(err.message || 'Error al guardar')
-    } finally {
-      setGuardando(false)
+    // ✅ Guardar asignaciones (si hay)
+    const asignacionesValidas = asignaciones.filter(a => a.carrera_id || a.materia)
+    if (asignacionesValidas.length > 0) {
+      const paraGuardar = asignacionesValidas.map(a => ({
+        docentes_id: docentes.id,
+        carrera_id: a.carrera_id || null,
+        curso_division: a.curso_id?.trim() || null,
+        materia: a.materia?.trim() || null
+      }))
+      await supabase.from('asignaciones').insert(paraGuardar)
     }
+
+    // ✅ Limpiar formulario
+    setForm({
+      nombre: '', apellido: '', dni: '',
+      telefono: '', domicilio: '', cargo: 'docente',
+      horas_titulares: 0,
+      disponibilidad: 'Completa'
+    })
+    setAsignaciones([{ carrera_id: '', curso_id: '', materia: '' }])
+    setModalOpen(false)
+    cargarTodo()
+
+  } catch (err) {
+    console.error(err)
+    setError(err.message || 'Error al guardar')
+  } finally {
+    setGuardando(false)
   }
+}
 
   function agregarAsignacion() {
     setAsignaciones([...asignaciones, { carrera_id: '', curso_id: '', materia: '' }])
@@ -111,7 +98,7 @@ export default function Docentes() {
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>Gestión de Docentes y Personal</h2>
+        <h2>Gestión de docentes y Personal</h2>
         <button
           onClick={() => setModalOpen(true)}
           style={{ padding: '10px 20px', background: '#8B0000', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '15px' }}
@@ -214,7 +201,7 @@ export default function Docentes() {
                     onChange={e => setForm({ ...form, cargo: e.target.value })}
                     style={{ width: '100%', padding: '8px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px' }}
                   >
-                    <option value="Docente">Docente</option>
+                    <option value="docente">docente</option>
                     <option value="Rector">Rector</option>
                     <option value="Secretario Académico">Secretario Académico</option>
                     <option value="Bedel">Bedel</option>
