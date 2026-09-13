@@ -48,9 +48,9 @@ export default function PedirLicencia() {
       const userId = user?.id
       console.log('🔍 Buscando docente con user_id:', userId)
 
-      // ✅ CAMBIADO: 'docentes' en lugar de 'teachers'
+      // ✅ CORREGIDO: busca en la tabla teachers que ya existe
       let { data: t, error: teacherError } = await supabase
-        .from('docentes')
+        .from('teachers')
         .select('carrera, curso_division')
         .eq('user_id', userId)
         .maybeSingle()
@@ -98,16 +98,16 @@ export default function PedirLicencia() {
       if (!tipoSeleccionado) throw new Error('Tipo de licencia no válido')
 
       // 🔹 Buscamos tu registro completo
-      // ✅ CAMBIADO: 'docentes' en lugar de 'teachers'
+      // ✅ CORREGIDO: busca en la tabla teachers
       const { data: docenteCompleto, error: docenteError } = await supabase
-        .from('docentes')
+        .from('teachers')
         .select('*')
         .eq('user_id', user?.id)
         .maybeSingle()
 
       if (docenteError) throw docenteError
 
-      // ✅ Usamos el ID de la tabla docentes
+      // ✅ Usamos el ID de la tabla teachers
       const teacherId = docenteCompleto.id
       console.log('🆔 ID que guardamos:', teacherId)
 
@@ -130,9 +130,9 @@ export default function PedirLicencia() {
       // ✅ 2. Generar PDF
       const pdfBytes = await generarAvisoPDF({
         docente: {
-          nombre: teacher?.users?.nombre || '',
-          apellido: teacher?.users?.apellido || '',
-          dni: teacher?.users?.dni || 'Sin DNI',
+          nombre: teacher?.nombre || '',
+          apellido: teacher?.apellido || '',
+          dni: teacher?.dni || 'Sin DNI',
           carrera: teacher?.carrera || 'Docente',
           curso_division: teacher?.curso_division || ''
         },
