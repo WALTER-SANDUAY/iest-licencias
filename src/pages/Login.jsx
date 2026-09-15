@@ -4,15 +4,14 @@ import { useAuth } from '../context/AuthContext'
 import logo from '/icons/logo.jpg'
 
 export default function Login() {
- const { loginRector, loginDocente, setUser, setPerfil } = useAuth()
+  const { loginRector, loginDocente, setUser, setPerfil } = useAuth()
   const navigate = useNavigate()
-
-  const [rol, setRol]           = useState('docente')
-  const [dni, setDni]           = useState('')
-  const [email, setEmail]       = useState('')
+  const [rol, setRol] = useState('docente')
+  const [dni, setDni] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError]       = useState('')
-  const [loading, setLoading]   = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -20,25 +19,27 @@ export default function Login() {
     setLoading(true)
 
     let result
-if (rol === 'docente') {
-  result = await loginDocente(dni)
-  // ✅ LAS 3 LÍNEAS VAN ACÁ, JUSTO ACÁ
-  if (!result.error && result.usuario) {
-    setUser(result.usuario)
-    setPerfil(result.usuario)
+    if (rol === 'docente') {
+      // ✅ SOLUCIÓN: Convertir DNI a NÚMERO antes de enviarlo
+      const dniNumero = Number(dni.trim()) // 🔑 LÍNEA QUE LO ARREGLÓ
+      console.log('BUSCANDO DNI:', dniNumero) // Para ver en consola
+      result = await loginDocente(dniNumero) // ✅ Enviamos NÚMERO
+    } else {
+      result = await loginRector(email, password)
+    }
+
+    setLoading(false)
+
+    if (result.error) {
+      setError(result.error.message || JSON.stringify(result.error))
+    } else {
+      if (!result.error && result.usuario) {
+        setUser(result.usuario)
+        setPerfil(result.usuario)
+      }
+      navigate(rol === 'rector' ? '/rector' : '/docente')
+    }
   }
-} else {
-  result = await loginRector(email, password)
-}
-setLoading(false)  // ← ESTA LÍNEA QUEDA DESPUÉS
-if (result.error) {
-  setError(result.error.message || JSON.stringify(result.error))
-} else {
-  navigate(rol === 'rector' ? '/rector' : '/docente')
-}
-
-
-}
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '32px 20px', background: 'var(--color-bg)' }}>
