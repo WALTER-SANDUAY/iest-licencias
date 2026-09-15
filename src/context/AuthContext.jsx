@@ -47,40 +47,40 @@ export function AuthProvider({ children }) {
   }
 
   // ✅ CORREGIDO: Convertimos a NÚMERO porque así está guardado en Supabase
-  async function loginDocente(dni) {
-    console.log("🔍 BUSCANDO DNI:", dni, "tipo:", typeof dni)
+ // ✅ CORREGIDO: Tabla = docente / DNI como NÚMERO
+async function loginDocente(dni) {
+  console.log("🔍 BUSCANDO DNI:", dni, "tipo:", typeof dni)
+  
+  // Limpiamos y convertimos a NÚMERO
+  const dniBuscar = Number(String(dni).trim())
+  console.log("🔍 DNI LIMPIO (NÚMERO):", dniBuscar)
 
-    // Primero limpiamos como texto → luego convertimos a NÚMERO
-    const dniBuscar = (String(dni).trim())
-    console.log("🔍 DNI LIMPIO:", dniBuscar)
+  const { data: docentes, error } = await supabase
+    .from('docente')  // 👈 TABLA CORREGIDA: era 'teachers'
+    .select('id, dni, nombre, apellido')
+    .eq('dni', dniBuscar)  // 👈 AHORA SÍ: buscamos como NÚMERO
+    .limit(1)
 
-    const { data: docentes, error } = await supabase
-      .from('teachers')
-      .select('id, dni, nombre, apellido')
-      .eq('dni', dniBuscar) // ✅ Buscamos como NÚMERO
-      .limit(1)
+  console.log("📄 RESULTADO:", docentes, "ERROR:", error)
 
-    console.log("📄 RESULTADO:", docentes, "ERROR:", error)
-
-    if (error || !docentes || docentes.length === 0) {
-      console.log("❌ DNI no encontrado:", dniBuscar)
-      return { error: { message: 'DNI no encontrado en el sistema' } }
-    }
-
-    const docente = docentes[0]
-    console.log("✅ DOCENTE ENCONTRADO → ACCESO PERMITIDO")
-
-    return { 
-      error: null, 
-      usuario: { 
-        id: docente.id, 
-        dni: docente.dni,
-        nombre: docente.nombre,
-        apellido: docente.apellido,
-        rol: 'docente'
-      } 
-    }
+  if (error || !docentes || docentes.length === 0) {
+    console.log("❌ DNI no encontrado:", dniBuscar)
+    return { error: { message: 'DNI no encontrado en el sistema' } }
   }
+
+  const docente = docentes[0]
+  console.log("✅ DOCENTE ENCONTRADO → ACCESO PERMITIDO")
+  return { 
+    error: null, 
+    usuario: { 
+      id: docente.id, 
+      dni: docente.dni,
+      nombre: docente.nombre,
+      apellido: docente.apellido,
+      rol: 'docente'
+    } 
+  }
+}
 
   async function logout() {
     await supabase.auth.signOut()
