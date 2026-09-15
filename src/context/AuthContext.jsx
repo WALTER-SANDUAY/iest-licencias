@@ -51,22 +51,22 @@ export function AuthProvider({ children }) {
 async function loginDocente(dni) {
   console.log("🔍 BUSCANDO DNI:", dni, "tipo:", typeof dni)
   
-  // Limpiamos y convertimos a NÚMERO
-  const dniBuscar = Number(String(dni).trim())
-  console.log("🔍 DNI LIMPIO (NÚMERO):", dniBuscar)
+  // ✅ LIMPIAMOS Y BUSCAMOS COMO TEXTO
+const dniBuscar = String(dni).trim()
+console.log("🔍 DNI LIMPIO (TEXTO):", dniBuscar)
 
-  const { data: docentes, error } = await supabase
-    .from('docente')  // 👈 TABLA CORREGIDA: era 'teachers'
-    .select('id, dni, nombre, apellido')
-    .eq('dni', dniBuscar)  // 👈 AHORA SÍ: buscamos como NÚMERO
-    .limit(1)
+const { data: docentes, error } = await supabase
+  .from('docente')
+  .select('id, dni, nombre, apellido')
+  .eq('dni', dniBuscar)
+  .limit(1)
 
-  console.log("📄 RESULTADO:", docentes, "ERROR:", error)
+console.log("📄 RESULTADO:", docentes, "ERROR:", error)
 
-  if (error || !docentes || docentes.length === 0) {
-    console.log("❌ DNI no encontrado:", dniBuscar)
-    return { error: { message: 'DNI no encontrado en el sistema' } }
-  }
+if (error || !docentes || docentes.length === 0) {
+  console.log("❌ DNI no encontrado:", dniBuscar)
+  return { error: { message: 'DNI no encontrado en el sistema' } }
+}
 
   const docente = docentes[0]
   console.log("✅ DOCENTE ENCONTRADO → ACCESO PERMITIDO")
