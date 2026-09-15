@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
     const { data: docente, error } = await supabase
       .from('teachers')          // ← ✅ ANTES decía 'users' → AHORA 'teachers'
       .select('id, dni, nombre, apellido') // ← ✅ Campos que existen en tu tabla
-      .eq('dni', Number(dni))
+      .eq('dni', String(dni))
       .single()
     console.log("📄 RESULTADO:", docente, "ERROR:", error)
     if (error || !docente) {
