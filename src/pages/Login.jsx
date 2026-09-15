@@ -18,15 +18,15 @@ export default function Login() {
     setError('')
     setLoading(true)
 
-    let result
-    if (rol === 'docente') {
-      // ✅ SOLUCIÓN: Convertir DNI a NÚMERO antes de enviarlo
-      const dniNumero = Number(dni.trim()) // 🔑 LÍNEA QUE LO ARREGLÓ
-      console.log('BUSCANDO DNI:', dniNumero) // Para ver en consola
-      result = await loginDocente(dniNumero) // ✅ Enviamos NÚMERO
-    } else {
-      result = await loginRector(email, password)
-    }
+   let result
+   if (rol === 'docente') {
+   // ✅ SOLUCIÓN: Convertir DNI a NÚMERO antes de enviarlo
+   const dniNumero = Number(String(dni).trim())
+   console.log('BUSCANDO DNI:', dniNumero)
+   result = await loginDocente(dniNumero)
+  }  else {
+   result = await loginRector(email, password)
+  }
 
     setLoading(false)
 
