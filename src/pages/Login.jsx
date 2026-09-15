@@ -18,15 +18,22 @@ export default function Login() {
     setError('')
     setLoading(true)
 
-   let result
-   if (rol === 'docente') {
-   // ✅ SOLUCIÓN: Convertir DNI a NÚMERO antes de enviarlo
-   const dniNumero = Number(String(dni).trim())
-   console.log('BUSCANDO DNI:', dniNumero)
-   result = await loginDocente(dniNumero)
-  }  else {
-   result = await loginRector(email, password)
-  }
+    let result
+    if (rol === 'docente') {
+      // ✅ CORRECCIÓN: Limpiar y convertir DNI correctamente
+      const dniLimpio = String(dni).trim() // Primero limpiamos como texto
+      if (!dniLimpio) {
+        setError('Por favor ingresa tu DNI')
+        setLoading(false)
+        return
+      }
+      const dniNumero = Number(dniLimpio) // Luego convertimos a número
+
+      console.log('BUSCANDO DNI:', dniNumero)
+      result = await loginDocente(dniNumero)
+    } else {
+      result = await loginRector(email, password)
+    }
 
     setLoading(false)
 
@@ -67,7 +74,13 @@ export default function Login() {
         {rol === 'docente' ? (
           <div className="form-group">
             <label>Tu DNI</label>
-            <input type="text" placeholder="Ej: 28441001" value={dni} onChange={e => setDni(e.target.value)} required />
+            <input 
+              type="text" 
+              placeholder="Ej: 28441001" 
+              value={dni} 
+              onChange={e => setDni(e.target.value)} 
+              required 
+            />
           </div>
         ) : (
           <>
