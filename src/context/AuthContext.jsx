@@ -51,7 +51,7 @@ export function AuthProvider({ children }) {
     console.log("🔍 BUSCANDO DNI:", dni, "tipo:", typeof dni)
 
     // Primero limpiamos como texto → luego convertimos a NÚMERO
-    const dniBuscar = Number(String(dni).trim())
+    const dniBuscar = (String(dni).trim())
     console.log("🔍 DNI LIMPIO:", dniBuscar)
 
     const { data: docentes, error } = await supabase
