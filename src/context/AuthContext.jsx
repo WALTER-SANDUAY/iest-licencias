@@ -46,18 +46,18 @@ export function AuthProvider({ children }) {
     return { data, error }
   }
 
-  // ✅ CORREGIDO: El DNI puede llegar como número O texto → NO usar .trim() sobre número
+  // ✅ CORREGIDO: Convertimos a NÚMERO porque así está guardado en Supabase
   async function loginDocente(dni) {
     console.log("🔍 BUSCANDO DNI:", dni, "tipo:", typeof dni)
 
-    // ✅ Convertimos a texto por si acaso, SIN llamar .trim() sobre número
-    const dniBuscar = String(dni).trim()
+    // Primero limpiamos como texto → luego convertimos a NÚMERO
+    const dniBuscar = Number(String(dni).trim())
     console.log("🔍 DNI LIMPIO:", dniBuscar)
 
     const { data: docentes, error } = await supabase
       .from('teachers')
       .select('id, dni, nombre, apellido')
-      .eq('dni', dniBuscar) // ✅ Buscamos como texto limpio
+      .eq('dni', dniBuscar) // ✅ Buscamos como NÚMERO
       .limit(1)
 
     console.log("📄 RESULTADO:", docentes, "ERROR:", error)
