@@ -40,31 +40,38 @@ export function AuthProvider({ children }) {
   }
 
   // ✅ CORREGIDO: BUSCA EN LA TABLA CORRECTA (teachers)
-  async function loginDocente(dni) {
-    console.log("🔍 BUSCANDO DNI:", dni)
-    const { data: docente, error } = await supabase
-      .from('teachers')          // ← ✅ ANTES decía 'users' → AHORA 'teachers'
-      .select('id, dni, nombre, apellido') // ← ✅ Campos que existen en tu tabla
-      .eq('dni', String(dni))
-      .single()
-    console.log("📄 RESULTADO:", docente, "ERROR:", error)
-    if (error || !docente) {
-      console.log("❌ DNI no encontrado:", dni)
-      return { error: { message: 'DNI no encontrado en el sistema' } }
-    }
-    console.log("✅ DOCENTE ENCONTRADO → ACCESO PERMITIDO")
-    
-    return { 
-      error: null, 
-      usuario: { 
-        id: docente.id, 
-        dni: docente.dni,
-        nombre: docente.nombre,
-        apellido: docente.apellido,
-        rol: 'docente'
-      } 
-    }
+async function loginDocente(dni) {
+  console.log("🔍 BUSCANDO DNI:", dni)
+  const dniLimpio = dni.trim() // quitamos espacios por si acaso
+  
+  const { data: docentes, error } = await supabase
+    .from('teachers')
+    .select('id, dni, nombre, apellido')
+    .eq('dni', dniLimpio)  // ✅ Buscamos limpio
+    .limit(1)              // ✅ Solo necesitamos uno
+
+  console.log("📄 RESULTADO:", docentes, "ERROR:", error)
+
+  // ✅ Verificamos si encontró al menos uno
+  if (error || !docentes || docentes.length === 0) {
+    console.log("❌ DNI no encontrado:", dniLimpio)
+    return { error: { message: 'DNI no encontrado en el sistema' } }
   }
+
+  const docente = docentes[0] // ✅ Tomamos el primero
+  console.log("✅ DOCENTE ENCONTRADO → ACCESO PERMITIDO")
+  
+  return { 
+    error: null, 
+    usuario: { 
+      id: docente.id, 
+      dni: docente.dni,
+      nombre: docente.nombre,
+      apellido: docente.apellido,
+      rol: 'docente'
+    } 
+  }
+}
 
   async function logout() {
     await supabase.auth.signOut()
